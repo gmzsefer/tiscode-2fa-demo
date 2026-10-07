@@ -70,7 +70,11 @@ SEQ_LEN = 20             # 1. blok: ilk 10 ses (zaten ölçüldü) + 2. blok: 10
 BLOCK = 10
 EXP_START = "2026-10-07T04:00"     # gerçek deneylerin başladığı an (öncesi = kurulum denemeleri)
 
-DUPLICATES = {"20_2"}    # 20_2.wav = 20.wav ile birebir aynı dosya (md5) → deneylere girmez
+DUPLICATES = {"20_2"}
+
+# Demo modunda (sunucu) sadece deneylerde en güvenilir çıkan sesler çalınır;
+# böylece platformda sadece bu infotislerin linki siteye yönlendirilir.
+DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,7,11,32").split(",")    # 20_2.wav = 20.wav ile birebir aynı dosya (md5) → deneylere girmez
 
 def all_sounds():
     return sorted(f[:-4] for f in os.listdir("static") if f.endswith(".wav"))
@@ -172,6 +176,8 @@ def tiscode():
         chosen = n
     elif order == "fixed" and EXPERIMENT_MODE:      # dengeli: hücrenin sıradaki sesi
         chosen, _ = next_in_sequence(phone, dur)
+    elif not EXPERIMENT_MODE:                        # demo: güvenilir seslerden rastgele
+        chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # tamamen rastgele (gerçek 2FA gibi)
         chosen = random.choice([x for x in all_sounds() if x not in DUPLICATES])
     if phone == "all":                   # ortak test: her çalma = yeni oturum numarası
