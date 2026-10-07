@@ -1,0 +1,199 @@
+time,method,sound,duration_s,phone,result,elapsed_s,ack_device,attempt
+2026-10-07T04:02:19,TISCODE,14-25,5,phoneA,success,16.5,172.20.10.2 | Linux; Android 10; K,
+2026-10-07T04:03:06,TISCODE,9,5,phoneA,fail,22.6,,
+2026-10-07T04:05:35,TISCODE,20,5,phoneA,success,13.7,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:06:00,TISCODE,14,5,phoneA,success,13.9,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:06:27,TISCODE,10,5,phoneA,success,14.7,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:06:51,TISCODE,13,5,phoneA,success,14.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:07:15,TISCODE,19,5,phoneA,success,13.8,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:07:40,TISCODE,18,5,phoneA,success,13.6,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:08:16,TISCODE,36,5,phoneA,success,13.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T04:08:43,TISCODE,14-26,5,phoneA,success,13.0,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:36:10,TISCODE,14-25,5,phoneB,fail,23.8,,1
+2026-10-07T06:36:35,TISCODE,20,5,phoneB,success,16.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:37:06,TISCODE,13,5,phoneB,success,18.1,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:37:39,TISCODE,36,5,phoneB,success,17.8,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:38:16,TISCODE,19,5,phoneB,success,17.0,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:38:42,TISCODE,10,5,phoneB,success,16.2,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:39:14,TISCODE,14-26,5,phoneB,success,16.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:39:54,TISCODE,14,5,phoneB,success,16.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:40:24,TISCODE,18,5,phoneB,success,18.4,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T06:41:30,TISCODE,9,5,phoneB,fail,54.9,,1
+2026-10-07T08:42:47,TISCODE,14-30,5,phoneA,fail,35.8,,1
+2026-10-07T08:43:01,TISCODE,14-30,5,phoneA,success,49.1,172.20.10.2 | Linux; Android 10; K,2
+2026-10-07T08:43:20,TISCODE,4,5,phoneA,success,14.8,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:43:53,TISCODE,5,5,phoneA,success,23.9,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:44:24,TISCODE,7,5,phoneA,success,13.6,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:44:44,TISCODE,21,5,phoneA,success,13.0,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:45:06,TISCODE,11,5,phoneA,success,14.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:46:27,TISCODE,4-22,5,phoneA,fail,26.7,,1
+2026-10-07T08:46:50,TISCODE,4-22,5,phoneA,fail,50.1,,2
+2026-10-07T08:47:06,TISCODE,32,5,phoneA,success,13.5,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:50:34,TISCODE,20,3,phoneA,success,14.6,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:51:02,TISCODE,19,3,phoneA,success,15.2,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:51:49,TISCODE,9,3,phoneA,fail,38.7,,1
+2026-10-07T08:52:05,TISCODE,9,3,phoneA,fail,54.9,,2
+2026-10-07T08:52:21,TISCODE,14-25,3,phoneA,success,13.8,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:52:42,TISCODE,36,3,phoneA,success,14.9,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:53:03,TISCODE,10,3,phoneA,success,13.6,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:53:27,TISCODE,13,3,phoneA,success,14.9,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:53:48,TISCODE,18,3,phoneA,success,14.7,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:54:10,TISCODE,14-26,3,phoneA,success,13.1,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:54:33,TISCODE,14,3,phoneA,success,14.8,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:55:00,TISCODE,14-30,3,phoneA,success,13.4,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:55:21,TISCODE,7,3,phoneA,success,13.4,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:55:42,TISCODE,21,3,phoneA,success,15.0,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:56:03,TISCODE,4,3,phoneA,success,15.4,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:56:31,TISCODE,5,3,phoneA,success,13.3,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:56:52,TISCODE,32,3,phoneA,success,12.6,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:57:29,TISCODE,4-22,3,phoneA,fail,29.2,,1
+2026-10-07T08:57:46,TISCODE,4-22,3,phoneA,fail,45.9,,2
+2026-10-07T08:58:19,TISCODE,2,3,phoneA,fail,29.7,,1
+2026-10-07T08:58:34,TISCODE,2,3,phoneA,success,45.3,172.20.10.2 | Linux; Android 10; K,2
+2026-10-07T08:58:54,TISCODE,11,3,phoneA,success,14.1,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T08:59:19,TISCODE,12-24,3,phoneA,fail,12.8,,1
+2026-10-07T08:59:34,TISCODE,12-24,3,phoneA,fail,28.0,,2
+2026-10-07T09:01:07,TISCODE,12-24,5,phoneA,success,14.4,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T09:01:29,TISCODE,2,5,phoneA,success,15.1,172.20.10.2 | Linux; Android 10; K,1
+2026-10-07T09:01:57,TISCODE,9,1,phoneA,fail,11.6,,1
+2026-10-07T09:02:05,TISCODE,9,1,phoneA,fail,19.2,,2
+2026-10-07T09:02:25,TISCODE,14,1,phoneA,fail,16.3,,1
+2026-10-07T09:02:33,TISCODE,14,1,phoneA,fail,24.4,,2
+2026-10-07T09:02:44,TISCODE,14-26,1,phoneA,fail,9.8,,1
+2026-10-07T09:03:00,TISCODE,14-26,1,phoneA,fail,25.9,,2
+2026-10-07T09:03:12,TISCODE,36,1,phoneA,fail,10.6,,1
+2026-10-07T09:03:23,TISCODE,36,1,phoneA,fail,21.3,,2
+2026-10-07T09:18:32,TISCODE,20,1,phoneA,fail,9.1,,1
+2026-10-07T09:19:35,TISCODE,20,1,phoneA,fail,72.9,,2
+2026-10-07T09:19:48,TISCODE,13,1,phoneA,fail,10.1,,1
+2026-10-07T09:20:01,TISCODE,18,1,phoneA,fail,11.0,,1
+2026-10-07T09:20:20,TISCODE,18,1,phoneA,fail,30.3,,2
+2026-10-07T09:20:33,TISCODE,14-25,1,phoneA,fail,10.5,,1
+2026-10-07T09:20:43,TISCODE,14-25,1,phoneA,fail,21.3,,2
+2026-10-07T09:20:56,TISCODE,19,1,phoneA,fail,9.8,,1
+2026-10-07T09:21:02,TISCODE,19,1,phoneA,fail,15.7,,2
+2026-10-07T09:21:14,TISCODE,10,1,phoneA,fail,10.4,,1
+2026-10-07T09:21:21,TISCODE,10,1,phoneA,fail,17.5,,2
+2026-10-07T09:21:32,TISCODE,32,1,phoneA,fail,9.6,,1
+2026-10-07T09:21:43,TISCODE,32,1,phoneA,fail,20.7,,2
+2026-10-07T09:21:56,TISCODE,14-30,1,phoneA,fail,11.2,,1
+2026-10-07T09:22:04,TISCODE,14-30,1,phoneA,fail,19.7,,2
+2026-10-07T09:22:13,TISCODE,2,1,phoneA,fail,7.9,,1
+2026-10-07T09:22:24,TISCODE,2,1,phoneA,fail,18.5,,2
+2026-10-07T09:22:42,TISCODE,11,1,phoneA,fail,10.4,,1
+2026-10-07T09:22:54,TISCODE,11,1,phoneA,fail,23.0,,2
+2026-10-07T09:23:04,TISCODE,4-22,1,phoneA,fail,8.4,,1
+2026-10-07T09:23:21,TISCODE,4-22,1,phoneA,fail,25.6,,2
+2026-10-07T09:23:38,TISCODE,12-24,1,phoneA,fail,11.2,,1
+2026-10-07T09:23:59,TISCODE,12-24,1,phoneA,fail,32.4,,2
+2026-10-07T09:24:12,TISCODE,5,1,phoneA,fail,11.4,,1
+2026-10-07T09:24:31,TISCODE,5,1,phoneA,fail,30.8,,2
+2026-10-07T09:24:42,TISCODE,21,1,phoneA,fail,9.7,,1
+2026-10-07T09:24:46,TISCODE,21,1,phoneA,success,13.3,172.20.10.2 | Linux; Android 10; K,2
+2026-10-07T09:25:11,TISCODE,4,1,phoneA,fail,13.4,,1
+2026-10-07T09:25:14,TISCODE,4,1,phoneA,success,16.0,172.20.10.2 | Linux; Android 10; K,2
+2026-10-07T09:25:31,TISCODE,7,1,phoneA,fail,11.4,,1
+2026-10-07T09:28:20,TISCODE,2,5,phoneB,success,20.0,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:28:40,TISCODE,12-24,5,phoneB,fail,15.3,,1
+2026-10-07T09:29:07,TISCODE,12-24,5,phoneB,fail,41.6,,2
+2026-10-07T09:29:27,TISCODE,32,5,phoneB,success,16.8,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:29:50,TISCODE,5,5,phoneB,success,15.8,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:30:21,TISCODE,21,5,phoneB,success,15.8,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:30:48,TISCODE,4,5,phoneB,success,17.2,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:31:18,TISCODE,4-22,5,phoneB,fail,22.8,,1
+2026-10-07T09:31:40,TISCODE,4-22,5,phoneB,fail,44.5,,2
+2026-10-07T09:32:10,TISCODE,11,5,phoneB,success,17.4,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:32:32,TISCODE,14-30,5,phoneB,success,16.5,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:33:03,TISCODE,7,5,phoneB,success,16.8,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:33:35,TISCODE,9,3,phoneB,fail,23.7,,1
+2026-10-07T09:34:08,TISCODE,9,3,phoneB,fail,56.7,,2
+2026-10-07T09:34:26,TISCODE,10,3,phoneB,success,16.0,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:34:51,TISCODE,36,3,phoneB,success,18.4,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:35:21,TISCODE,18,3,phoneB,fail,23.8,,1
+2026-10-07T09:35:35,TISCODE,18,3,phoneB,fail,38.7,,2
+2026-10-07T09:35:51,TISCODE,13,3,phoneB,success,14.6,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:36:11,TISCODE,20,3,phoneB,success,15.4,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:36:30,TISCODE,14-25,3,phoneB,fail,14.0,,1
+2026-10-07T09:36:43,TISCODE,14-25,3,phoneB,fail,27.6,,2
+2026-10-07T09:37:04,TISCODE,14,3,phoneB,success,19.2,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:37:26,TISCODE,19,3,phoneB,success,16.1,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:38:00,TISCODE,14-26,3,phoneB,success,16.8,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:38:24,TISCODE,7,3,phoneB,success,17.2,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:38:49,TISCODE,21,3,phoneB,fail,17.5,,1
+2026-10-07T09:39:05,TISCODE,21,3,phoneB,success,33.6,172.20.10.3 | Linux; Android 10; K,2
+2026-10-07T09:39:33,TISCODE,5,3,phoneB,fail,22.1,,1
+2026-10-07T09:39:49,TISCODE,5,3,phoneB,fail,38.0,,2
+2026-10-07T09:40:06,TISCODE,2,3,phoneB,fail,15.4,,1
+2026-10-07T09:40:10,TISCODE,2,3,phoneB,success,18.6,172.20.10.3 | Linux; Android 10; K,2
+2026-10-07T09:40:45,TISCODE,11,3,phoneB,success,16.7,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:41:08,TISCODE,32,3,phoneB,success,18.2,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:41:27,TISCODE,4,3,phoneB,success,14.6,172.20.10.3 | Linux; Android 10; K,1
+2026-10-07T09:41:53,TISCODE,12-24,3,phoneB,fail,20.6,,1
+2026-10-07T09:42:16,TISCODE,12-24,3,phoneB,fail,43.2,,2
+2026-10-07T09:42:32,TISCODE,4-22,3,phoneB,fail,14.7,,1
+2026-10-07T09:42:56,TISCODE,4-22,3,phoneB,fail,39.3,,2
+2026-10-07T09:43:14,TISCODE,14-30,3,phoneB,fail,13.6,,1
+2026-10-07T09:43:17,TISCODE,14-30,3,phoneB,success,16.3,172.20.10.3 | Linux; Android 10; K,2
+2026-10-07T09:45:37,TISCODE,9,1,phoneB,fail,9.6,,1
+2026-10-07T09:45:47,TISCODE,9,1,phoneB,fail,20.1,,2
+2026-10-07T09:45:57,TISCODE,20,1,phoneB,fail,8.2,,1
+2026-10-07T09:46:06,TISCODE,20,1,phoneB,fail,17.1,,2
+2026-10-07T09:46:20,TISCODE,10,1,phoneB,fail,11.4,,1
+2026-10-07T09:46:31,TISCODE,10,1,phoneB,fail,22.5,,2
+2026-10-07T09:46:43,TISCODE,19,1,phoneB,fail,10.7,,1
+2026-10-07T09:46:51,TISCODE,19,1,phoneB,fail,18.7,,2
+2026-10-07T09:47:01,TISCODE,14-25,1,phoneB,fail,8.7,,1
+2026-10-07T09:47:09,TISCODE,14-25,1,phoneB,fail,16.5,,2
+2026-10-07T09:47:24,TISCODE,36,1,phoneB,fail,7.8,,1
+2026-10-07T09:47:30,TISCODE,36,1,phoneB,fail,14.7,,2
+2026-10-07T09:47:42,TISCODE,14,1,phoneB,fail,10.3,,1
+2026-10-07T09:47:43,TISCODE,14,1,phoneB,fail,11.8,,2
+2026-10-07T09:47:56,TISCODE,14,1,phoneB,fail,24.5,,3
+2026-10-07T09:48:06,TISCODE,18,1,phoneB,fail,7.2,,1
+2026-10-07T09:48:20,TISCODE,18,1,phoneB,fail,22.0,,2
+2026-10-07T09:48:40,TISCODE,13,1,phoneB,fail,8.7,,1
+2026-10-07T09:48:57,TISCODE,13,1,phoneB,fail,25.8,,2
+2026-10-07T09:49:07,TISCODE,14-26,1,phoneB,fail,8.6,,1
+2026-10-07T09:49:17,TISCODE,14-26,1,phoneB,fail,18.4,,2
+2026-10-07T09:49:27,TISCODE,2,1,phoneB,fail,9.8,,1
+2026-10-07T09:49:38,TISCODE,2,1,phoneB,fail,21.1,,2
+2026-10-07T09:49:57,TISCODE,7,1,phoneB,fail,17.9,,1
+2026-10-07T09:50:14,TISCODE,7,1,phoneB,fail,34.2,,2
+2026-10-07T09:50:23,TISCODE,4,1,phoneB,fail,8.2,,1
+2026-10-07T09:50:54,TISCODE,4,1,phoneB,fail,38.6,,2
+2026-10-07T09:51:10,TISCODE,5,1,phoneB,fail,14.7,,1
+2026-10-07T09:51:19,TISCODE,5,1,phoneB,fail,23.4,,2
+2026-10-07T09:51:37,TISCODE,12-24,1,phoneB,fail,9.2,,1
+2026-10-07T09:51:52,TISCODE,12-24,1,phoneB,fail,24.4,,2
+2026-10-07T09:52:04,TISCODE,14-30,1,phoneB,fail,10.6,,1
+2026-10-07T09:52:13,TISCODE,14-30,1,phoneB,fail,19.8,,2
+2026-10-07T09:52:33,TISCODE,32,1,phoneB,fail,11.4,,1
+2026-10-07T09:52:40,TISCODE,32,1,phoneB,fail,18.5,,2
+2026-10-07T09:52:50,TISCODE,21,1,phoneB,fail,8.7,,1
+2026-10-07T09:53:01,TISCODE,21,1,phoneB,fail,20.0,,2
+2026-10-07T09:53:12,TISCODE,4-22,1,phoneB,fail,9.4,,1
+2026-10-07T09:53:22,TISCODE,4-22,1,phoneB,fail,20.1,,2
+2026-10-07T09:53:31,TISCODE,11,1,phoneB,fail,7.8,,1
+2026-10-07T09:53:40,TISCODE,11,1,phoneB,fail,16.2,,2
+2026-10-07T10:16:27,OTP (phone inbox),,,phoneA,success,7.2,,
+2026-10-07T10:21:10,Authenticator OTP,,,phoneA,success,11.4,,
+2026-10-07T10:21:40,Authenticator OTP,,,phoneA,success,6.9,,
+2026-10-07T10:22:06,Authenticator OTP,,,phoneA,success,21.8,,
+2026-10-07T10:22:35,Authenticator OTP,,,phoneA,success,24.9,,
+2026-10-07T10:24:10,Authenticator OTP,,,phoneA,success,5.6,,
+2026-10-07T10:24:38,Authenticator OTP,,,phoneA,success,5.8,,
+2026-10-07T10:25:16,Authenticator OTP,,,phoneA,success,5.2,,
+2026-10-07T10:25:50,Authenticator OTP,,,phoneA,success,7.4,,
+2026-10-07T10:26:09,Authenticator OTP,,,phoneA,success,5.3,,
+2026-10-07T10:28:08,Authenticator OTP,,,phoneB,wrong_code,6.2,,
+2026-10-07T10:28:17,Authenticator OTP,,,phoneB,wrong_code,15.0,,
+2026-10-07T10:28:23,Authenticator OTP,,,phoneB,success,21.5,,
+2026-10-07T10:28:39,Authenticator OTP,,,phoneB,success,4.4,,
+2026-10-07T10:29:14,Authenticator OTP,,,phoneB,success,19.8,,
+2026-10-07T10:29:35,Authenticator OTP,,,phoneB,success,10.0,,
+2026-10-07T10:30:07,Authenticator OTP,,,phoneB,success,16.9,,
+2026-10-07T10:30:36,Authenticator OTP,,,phoneB,success,8.5,,
+2026-10-07T10:32:11,Authenticator OTP,,,phoneB,success,5.9,,
+2026-10-07T10:32:34,Authenticator OTP,,,phoneB,success,7.4,,
+2026-10-07T10:33:05,Authenticator OTP,,,phoneB,success,5.7,,
+2026-10-07T10:33:35,Authenticator OTP,,,phoneB,success,9.6,,

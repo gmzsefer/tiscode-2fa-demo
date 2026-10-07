@@ -70,11 +70,16 @@ SEQ_LEN = 20             # 1. blok: ilk 10 ses (zaten ölçüldü) + 2. blok: 10
 BLOCK = 10
 EXP_START = "2026-10-07T04:00"     # gerçek deneylerin başladığı an (öncesi = kurulum denemeleri)
 
-DUPLICATES = {"20_2"}
+DUPLICATES = {"20_2"}    # 20_2.wav = 20.wav ile birebir aynı dosya (md5) → deneylere girmez
 
 # Demo modunda (sunucu) sadece deneylerde en güvenilir çıkan sesler çalınır;
 # böylece platformda sadece bu infotislerin linki siteye yönlendirilir.
-DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,7,11,32").split(",")    # 20_2.wav = 20.wav ile birebir aynı dosya (md5) → deneylere girmez
+DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,7,11,32").split(",")
+
+# ONAY RÖLESİ: infotis linkleri canlı siteye (/ack) gider; yerel deney sunucusu
+# onayları oradan çeker. Böylece telefon herhangi bir ağdan (WiFi, 5G) onay verebilir
+# ve linkler IP değişince güncellenmek zorunda kalmaz. Sunucuda (demo modu) kapalı.
+ACK_RELAY = os.environ.get("ACK_RELAY", "https://tiscode-2fa-demo.onrender.com" if EXPERIMENT_MODE else "")
 
 def all_sounds():
     return sorted(f[:-4] for f in os.listdir("static") if f.endswith(".wav"))
@@ -184,7 +189,7 @@ def tiscode():
         waiting["session"] = waiting.get("session", 0) + 1
         phone = f"all#{waiting['session']}"
     waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone,
-                   start=time.time(), acks={}, attempt=1)    # süre ölçümü başlıyor
+                   start=time.time(), acks={}, attempt=1, relay_seen=set())    # süre ölçümü başlıyor
     return playing_page()
 
 # Aynı ses tanınmadı → tekrar çal. İlk deneme "fail (attempt 1)" olarak kaydedilir,
@@ -244,33 +249,53 @@ def fail():
     return choose_html()
 
 # Telefon bildirimindeki linke basınca buraya gelir (ONAY)
+# Onay kaydı: telefonun /ack linkine bastığı an (t = sunucu saati)
+def register_ack(dev, t):
+    if waiting["phone"] == "test":        # /test sayfası: deney kaydı yok
+        waiting["confirmed"] = True
+        return f"<h1>✅ Test OK: infotis {waiting['token']} reached the computer.</h1>"
+    if waiting["phone"].startswith("all#"):
+        if dev not in waiting["acks"]:     # her telefon bir kez sayılır
+            waiting["acks"][dev] = round(t - waiting["start"], 1)
+            log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
+                       "success", waiting["acks"][dev], dev)
+        return "<h1>✅ Confirmed! Go back to your computer.</h1>"
+    if not waiting["confirmed"]:          # aynı onay iki kez sayılmasın
+        waiting["confirmed"] = True
+        waiting["elapsed"] = round(t - waiting["start"], 1)
+        log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
+                   "success", waiting["elapsed"], dev, waiting.get("attempt", 1))
+    return "<h1>✅ Confirmed! Go back to your computer.</h1>"
+
+# Telefon bildirimindeki linke basınca buraya gelir (ONAY)
+# Her basış relay_log'a da yazılır: yerel deney sunucusu onayları buradan çeker.
+relay_log = []
+
 @app.route("/ack")
 def ack():
     token = request.args.get("token")
+    t, dev = time.time(), device_id()
+    relay_log.append({"t": t, "dev": dev})
+    del relay_log[:-50]
     # token verilmişse eşleşmeli; verilmemişse bekleyen girişi onayla (demo kolaylığı)
     if waiting.get("token") and (token is None or token == waiting["token"]):
-        if waiting["phone"] == "test":        # /test sayfası: deney kaydı yok
-            waiting["confirmed"] = True
-            return f"<h1>✅ Test OK: infotis {waiting['token']} reached the computer.</h1>"
-        if waiting["phone"].startswith("all#"):
-            dev = device_id()
-            if dev not in waiting["acks"]:     # her telefon bir kez sayılır
-                waiting["acks"][dev] = round(time.time() - waiting["start"], 1)
-                log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
-                           "success", waiting["acks"][dev], dev)
-            return "<h1>✅ Confirmed! Go back to your computer.</h1>"
-        if not waiting["confirmed"]:          # aynı onay iki kez sayılmasın
-            waiting["confirmed"] = True
-            waiting["elapsed"] = round(time.time() - waiting["start"], 1)
-            log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
-                       "success", waiting["elapsed"], device_id(), waiting.get("attempt", 1))
-        return "<h1>✅ Confirmed! Go back to your computer.</h1>"
-    return "<h1>❌ Wrong or expired token</h1>"
+        return register_ack(dev, t)
+    if token is not None:
+        return "<h1>❌ Wrong or expired token</h1>"
+    return "<h1>✅ Confirmation sent. Go back to your computer.</h1>"
+
+# Yerel deney sunucusu bunu sorar: belli bir andan sonra gelen onaylar
+@app.route("/acks-since")
+def acks_since():
+    t = float(request.args.get("t", 0))
+    r = jsonify(acks=[a for a in relay_log if a["t"] > t])
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    return r
 
 # Test sayfası bir sesi çalınca: o sesi "bekleniyor" yap (kayıt tutulmaz)
 @app.route("/arm/<name>")
 def arm(name):
-    waiting.update(confirmed=False, token=name, phone="test", start=time.time(), acks={})
+    waiting.update(confirmed=False, token=name, phone="test", start=time.time(), acks={}, relay_seen=set())
     return jsonify(ok=True)
 
 # TEST sayfası: tüm infotis'leri tek ekranda çal, hangileri tanınıyor bul
@@ -318,6 +343,17 @@ setInterval(async () => {{
 # Login sayfası bunu sürekli sorar: onay geldi mi?
 @app.route("/status")
 def status():
+    if ACK_RELAY and waiting.get("token") and (not waiting["confirmed"] or waiting["phone"].startswith("all#")):
+        try:
+            import urllib.request, json as _json
+            url = f"{ACK_RELAY}/acks-since?t={waiting['start']}"
+            with urllib.request.urlopen(url, timeout=3) as resp:
+                for a in _json.load(resp)["acks"]:
+                    if a["t"] not in waiting.setdefault("relay_seen", set()):
+                        waiting["relay_seen"].add(a["t"])
+                        register_ack(a["dev"] + " (relay)", a["t"])
+        except Exception as e:
+            print("relay error:", e)
     return jsonify(confirmed=waiting["confirmed"], acks=waiting.get("acks", {}))
 
 # Ortak başarı sayfası (süre + çıkış butonu ile)
@@ -330,7 +366,7 @@ width:340px;text-align:center}}h1{{color:#16a34a;margin-bottom:6px}}
 .info{{color:#555;font-size:14px}}.time{{font-size:24px;color:#764ba2;font-weight:bold;margin:14px 0}}
 a{{display:inline-block;margin-top:16px;padding:12px 28px;background:#764ba2;color:white;
 text-decoration:none;border-radius:10px;font-weight:bold}}a:hover{{opacity:.9}}</style></head>
-<body><div class="kart"><h1>✅ Welcome, Gamze!</h1>
+<body><div class="kart"><h1>✅ Welcome!</h1>
 <p class="info">Login complete via <b>{method}</b></p>
 <p class="time">⏱️ {seconds} s</p>
 {'<a href="/choose">🔁 Next trial</a>' if EXPERIMENT_MODE else ''}

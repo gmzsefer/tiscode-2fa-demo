@@ -45,6 +45,8 @@ def stats(xs):
 
 
 def load(since):
+    if not os.path.exists("results.csv"):
+        raise SystemExit("results.csv not found - run some trials in experiment mode first.")
     rows = list(csv.DictReader(open("results.csv")))
     return [r for r in rows if not since or r["time"] >= since]
 

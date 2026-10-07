@@ -34,7 +34,13 @@ printf 'you@example.com\nyour-password\n' > .demo_login   # demo account (not co
 python3 app.py                                           # http://localhost:5002
 ```
 
+Without a `.demo_login` file the demo account is `demo@tiscode.test` / `demo`.
 Phones must be on the same network and open `http://<computer-IP>:5002/...`.
+
+## Data
+
+`results.csv` holds the trials from 7 October 2026 (two lab phones and one iPhone).
+Run `python3 analyze.py` to rebuild the tables and charts in `analysis/`.
 
 ## Deploy (Render)
 
