@@ -1,0 +1,14 @@
+# gizli dosyalar
+.smtp_password
+.totp_secret
+.flask_secret
+.demo_login
+# deney verileri ve kişisel notlar (yerelde kalır)
+results.csv
+old_results/
+analysis/
+totp_debug.log
+SUNUM_REHBERI.md
+# sistem
+__pycache__/
+.DS_Store

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TISCODE</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; margin: 0;
+    }
+    .kart {
+      background: white; padding: 40px; border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 360px; text-align: center;
+    }
+    h1 { color: #764ba2; margin-bottom: 8px; }
+    p { color: #888; font-size: 14px; }
+    .wave {
+      font-size: 20px; color: #764ba2;
+      margin: 15px 0; animation: pulse 1s infinite;
+      white-space: nowrap; overflow: hidden;
+    }
+    @keyframes pulse { 50% { opacity: 0.3; } }
+    audio { width: 100%; margin: 15px 0; }
+    .status { color: #f59e0b; font-weight: bold; margin-top: 10px; }
+    .retry { display: inline-block; margin-top: 12px; color: #764ba2; font-size: 13px; }
+    .fail { display: inline-block; margin-top: 12px; color: #c62828; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="kart">
+    <h1>🔊 Playing TISCODE...</h1>
+    <p>Your computer is playing the sound. Your phone will hear it.</p>
+    <div class="wave">▁▂▃▅▇▅▃▂▁▂▃▅▇▅▃▂▁</div>
+    <audio src="SOUND_URL" autoplay controls></audio>
+    <p>TISCODE <b>SOUND_NAME</b> · length <b>DUR s</b> · attempt <b>ATTEMPT</b></p>
+    <p class="status">📡 Waiting for your phone...</p>
+    <div id="acks"></div>
+    <a class="retry" id="retrybtn" href="/retry">🔁 Not recognized — play again (attempt +1)</a><br>
+    <a class="fail" id="failbtn" href="/fail">❌ Phone didn't react (log as failed)</a>
+  </div>
+
+  <script>
+    // Sunucuya her saniye sor: telefon onayladı mı?
+    setInterval(async () => {
+      const r = await fetch("/status");
+      const d = await r.json();
+      if ("MODE" === "all") {        // ortak test: yönlendirme yok, kimler onayladı göster
+        const list = Object.entries(d.acks);
+        document.getElementById("acks").innerHTML = list.length
+          ? list.map(([dev, t]) => `<p>✅ ${dev.split(" | ")[1] || dev} <b>${t}s</b></p>`).join("")
+          : "";
+      } else if (d.confirmed) {
+        location.href = "/success";   // onay geldi → başarı sayfasına git
+      }
+    }, 1000);
+    if ("MODE" === "all") {
+    const b = document.getElementById("failbtn");
+    b.textContent = "⏹ Finish — next sound (phones that didn't react = failed)";
+    document.getElementById("retrybtn").style.display = "none";
+  }
+</script>
+</body>
+</html>

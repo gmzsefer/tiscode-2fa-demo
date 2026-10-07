@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>Login</title>
+  <style>
+    /* Sayfanın geneli */
+    body {
+      font-family: -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      justify-content: center;   /* yatayda ortala */
+      align-items: center;       /* dikeyde ortala */
+      height: 100vh;             /* tam ekran yüksekliği */
+      margin: 0;
+    }
+
+    /* Ortadaki beyaz kart */
+    .kart {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+      width: 320px;
+      text-align: center;
+    }
+
+    h1 { color: #764ba2; margin-bottom: 25px; }
+
+    /* Yazma kutuları */
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      box-sizing: border-box;
+      font-size: 15px;
+    }
+    input:focus { border-color: #764ba2; outline: none; }
+
+    /* Buton */
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="kart">
+    <h1>🔐 Login</h1>
+    <form method="post" action="/login">
+      <input type="email" name="email" placeholder="Email">
+      <input type="password" name="password" placeholder="Password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</body>
+</html>

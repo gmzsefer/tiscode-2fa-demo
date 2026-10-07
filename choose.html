@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Two-Factor</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; margin: 0;
+    }
+    .kart {
+      background: white; padding: 40px; border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 340px; text-align: center;
+    }
+    h1 { color: #764ba2; margin-bottom: 8px; }
+    p { color: #888; margin-bottom: 25px; font-size: 14px; }
+    .btn {
+      display: block; width: 100%; padding: 14px; margin: 10px 0;
+      border-radius: 10px; font-size: 15px; font-weight: bold;
+      text-decoration: none; box-sizing: border-box;
+    }
+    .disabled { background: #f0f0f0; color: #bbb; }
+    .email { background: #f59e0b; color: white; cursor: pointer; }
+    .email:hover { opacity: 0.9; }
+    .tiscode {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; cursor: pointer;
+    }
+    .tiscode:hover { opacity: 0.9; }
+    .totp { background: #10b981; color: white; cursor: pointer; }
+    .totp:hover { opacity: 0.9; }
+    button.btn { border: none; }
+    .section {
+      text-align: left; font-size: 12px; font-weight: bold; color: #764ba2;
+      text-transform: uppercase; letter-spacing: 1px;
+      margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid #eee;
+    }
+    .section:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+    .opt {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 8px 0; font-size: 14px; color: #555;
+    }
+    .opt select { padding: 6px; border-radius: 8px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="kart">
+    <h1>🔐 Second Factor</h1>
+    <p>Choose a verification method</p>
+
+    <div class="section">🔊 TISCODE (sound)</div>
+    <form action="/tiscode" method="get">
+      <label class="opt">Phone
+        <select name="phone">
+          <option value="phoneA">Lab phone A</option>
+          <option value="phoneB">Lab phone B</option>
+          <option value="gamze">My phone</option>
+          <option value="all">📱📱📱 All 3 phones (same time)</option>
+        </select>
+      </label>
+      <label class="opt">TISCODE length
+        <select name="dur">
+          <option value="5" selected>5 s (full)</option>
+          <option value="4">4 s</option>
+          <option value="3">3 s</option>
+          <option value="2">2 s</option>
+          <option value="1">1 s</option>
+        </select>
+      </label>
+      <label class="opt">Sound order
+        <select name="order">
+          <option value="fixed" selected>Fixed list (balanced)</option>
+          <option value="random">Random</option>
+        </select>
+      </label>
+      <button class="btn tiscode">🔊 Verify with TISCODE</button>
+    </form>
+
+    <div class="section">🔢 One-time code (OTP)</div>
+    <a class="btn email" href="/email-otp">📩 OTP code (sent to phone)</a>
+    <a class="btn totp" href="/totp">🔢 Authenticator app (OTP)</a>
+  </div>
+  <script>
+    // Telefon ve süre seçimini hatırla (her denemede yeniden seçmek gerekmesin)
+    // OTP butonları da seçili telefonu kaydetsin
+    document.querySelectorAll("a.email, a.totp").forEach(a => a.addEventListener("click", e => {
+      e.preventDefault();
+      location.href = a.getAttribute("href") + "?phone=" + document.querySelector("select[name=phone]").value;
+    }));
+    for (const name of ["phone", "dur", "order"]) {
+      const el = document.querySelector(`select[name=${name}]`);
+      try { const v = localStorage.getItem(name); if (v) el.value = v; } catch (e) {}
+      el.addEventListener("change", () => { try { localStorage.setItem(name, el.value); } catch (e) {} });
+    }
+  </script>
+</body>
+</html>

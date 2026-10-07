@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: tiscode-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: EXPERIMENT_MODE
+        value: "false"
+      - key: FLASK_SECRET
+        generateValue: true
+      - key: DEMO_EMAIL
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
+      - key: TOTP_SECRET
+        sync: false
