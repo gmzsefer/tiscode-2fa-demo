@@ -177,7 +177,7 @@ def choose_html():
 # Experiment shortcut: after one password login, go straight back to the 2FA choice
 @app.route("/choose")
 def choose():
-    if not EXPERIMENT_MODE or not session.get("logged_in"):
+    if not session.get("logged_in"):
         return home()
     return choose_html()
 
@@ -224,8 +224,9 @@ def playing_page():
                 .replace("SOUND_NAME", chosen)
                 .replace("DUR", str(dur))
                 .replace("MODE", "all" if phone.startswith("all#") else "single")
-                .replace('id="failbtn"', 'id="failbtn"' if EXPERIMENT_MODE else 'id="failbtn" style="display:none"')
-                .replace('id="retrybtn"', 'id="retrybtn"' if EXPERIMENT_MODE else 'id="retrybtn" style="display:none"'))
+                .replace("❌ Phone didn't react (log as failed)",
+                         "❌ Phone didn't react (log as failed)" if EXPERIMENT_MODE
+                         else "❌ Not recognised — choose another method"))
 
 # Shorten a sound: keep the OM, cut the infocore after `dur` seconds
 @app.route("/cut/<name>/<int:dur>")
@@ -258,7 +259,8 @@ def fail():
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "fail",
                    round(time.time() - waiting["start"], 1), "", waiting.get("attempt", 1))
         waiting["token"] = None
-    return choose_html()
+    from flask import redirect
+    return redirect("/choose")
 
 # Register a confirmation at time t (server clock)
 def register_ack(dev, t):
