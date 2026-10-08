@@ -56,7 +56,8 @@ list of sounds, retry / "not recognised" buttons, and every trial is written to
 
 - `app.py` - the Flask web app (login, all second factors, experiment logging)
 - `analyze.py` - recognition rates (95% Wilson intervals), timing statistics
-  (Mann-Whitney U) and the charts; run `python3 analyze.py`
+  (Mann-Whitney U) and the charts; needs `pip install -r requirements-analysis.txt`,
+  then `python3 analyze.py`
 - `inspect_sounds.py` - measures where the opening marker and infocore start in
   each sound file and finds duplicate files (source of the constants in `app.py`)
 - `results.csv` - the trials from 7 October 2026
