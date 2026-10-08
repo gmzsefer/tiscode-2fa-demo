@@ -31,6 +31,8 @@
     .tiscode:hover { opacity: 0.9; }
     .totp { background: #10b981; color: white; cursor: pointer; }
     .totp:hover { opacity: 0.9; }
+    .push { background: #0ea5e9; color: white; cursor: pointer; }
+    .push:hover { opacity: 0.9; }
     button.btn { border: none; }
     .section {
       text-align: left; font-size: 12px; font-weight: bold; color: #764ba2;
@@ -78,17 +80,18 @@
       <button class="btn tiscode">🔊 Verify with TISCODE</button>
     </form>
 
-    <div class="section">🔢 One-time code (OTP)</div>
+    <div class="section">🔢 Other second factors</div>
     <a class="btn email" href="/email-otp">📩 OTP code (sent to phone)</a>
     <a class="btn totp" href="/totp">🔢 Authenticator app (OTP)</a>
+    <a class="btn push" href="/push">📲 Push approval (tap to approve)</a>
   </div>
   <script>
-    // Telefon ve süre seçimini hatırla (her denemede yeniden seçmek gerekmesin)
-    // OTP butonları da seçili telefonu kaydetsin
-    document.querySelectorAll("a.email, a.totp").forEach(a => a.addEventListener("click", e => {
+    // The other second-factor buttons also log the selected phone
+    document.querySelectorAll("a.email, a.totp, a.push").forEach(a => a.addEventListener("click", e => {
       e.preventDefault();
       location.href = a.getAttribute("href") + "?phone=" + document.querySelector("select[name=phone]").value;
     }));
+    // Remember the selected phone, length and order between trials
     for (const name of ["phone", "dur", "order"]) {
       const el = document.querySelector(`select[name=${name}]`);
       try { const v = localStorage.getItem(name); if (v) el.value = v; } catch (e) {}

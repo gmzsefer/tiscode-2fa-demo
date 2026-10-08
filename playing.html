@@ -42,17 +42,17 @@
   </div>
 
   <script>
-    // Sunucuya her saniye sor: telefon onayladı mı?
+    // Ask the server every second: has the phone confirmed?
     setInterval(async () => {
       const r = await fetch("/status");
       const d = await r.json();
-      if ("MODE" === "all") {        // ortak test: yönlendirme yok, kimler onayladı göster
+      if ("MODE" === "all") {        // simultaneous test: no redirect, list the phones that confirmed
         const list = Object.entries(d.acks);
         document.getElementById("acks").innerHTML = list.length
           ? list.map(([dev, t]) => `<p>✅ ${dev.split(" | ")[1] || dev} <b>${t}s</b></p>`).join("")
           : "";
       } else if (d.confirmed) {
-        location.href = "/success";   // onay geldi → başarı sayfasına git
+        location.href = "/success";   // confirmed -> success page
       }
     }, 1000);
     if ("MODE" === "all") {

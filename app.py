@@ -7,9 +7,9 @@ import numpy as np
 
 app = Flask(__name__)
 
-# Giriş bilgisi tarayıcı çerezinde (session) tutulur → sunucu yeniden başlasa da kalır.
-# Çerezi imzalayan anahtar dosyada saklanır (gitignore'da).
-# Sunucuda (Render) FLASK_SECRET ortam değişkeni kullanılır.
+# Login state lives in a signed browser cookie (session), so it survives server restarts.
+# The signing key is stored in a local file (git-ignored).
+# On the server (Render) the FLASK_SECRET environment variable is used.
 if os.environ.get("FLASK_SECRET"):
     app.secret_key = os.environ["FLASK_SECRET"]
 else:
@@ -17,14 +17,14 @@ else:
         open(".flask_secret", "w").write(secrets.token_hex(32))
     app.secret_key = open(".flask_secret").read().strip()
 
-# MOD: True = deney modu (telefon menüsü, "Next trial", "didn't react" butonu)
-#      False = demo modu (gerçek akış: her girişte şifre + 2FA, deney araçları gizli)
-# Yerelde varsayılan: deney modu. Sunucuda EXPERIMENT_MODE=false ayarlanır (demo).
+# MODE: True = experiment mode (phone selector, "Next trial", "didn't react" button)
+#      False = demo mode (real flow: password + 2FA every time, experiment tools hidden)
+# Local default: experiment mode. The server sets EXPERIMENT_MODE=false (demo).
 EXPERIMENT_MODE = os.environ.get("EXPERIMENT_MODE", "true").lower() == "true"
 
-# Demo hesabı — KODA YAZILMAZ (GitHub'a sızmasın).
-# Sunucuda DEMO_EMAIL / DEMO_PASSWORD ortam değişkenleri; yerelde `.demo_login`
-# dosyası (1. satır email, 2. satır şifre, gitignore'da).
+# Demo account - never hard-coded in the source.
+# Server: DEMO_EMAIL / DEMO_PASSWORD environment variables; locally a `.demo_login`
+# file (line 1 e-mail, line 2 password, git-ignored).
 def load_login():
     if os.environ.get("DEMO_EMAIL") and os.environ.get("DEMO_PASSWORD"):
         return os.environ["DEMO_EMAIL"], os.environ["DEMO_PASSWORD"]
@@ -35,11 +35,11 @@ def load_login():
 
 EMAIL, PASSWORD = load_login()
 
-# --- Email OTP ayarları ---
-# Gmail "Uygulama Şifresi" (App Password) KODA YAZILMAZ (GitHub'a sızmasın).
-# Proje klasöründe `.smtp_password` dosyasına tek satır olarak yazılır
-# (ya da TISCODE_SMTP_PASSWORD ortam değişkeni). Yoksa email GÖNDERMEZ,
-# kodu ekranda gösterir (sadece test için).
+# --- E-mail OTP settings ---
+# Gmail App Password - never hard-coded in the source.
+# Put it on one line in `.smtp_password` in the project folder
+# (or the TISCODE_SMTP_PASSWORD environment variable). Without it no e-mail is sent
+# and the code is delivered to the phone inbox page instead.
 def load_app_password():
     if os.environ.get("TISCODE_SMTP_PASSWORD"):
         return os.environ["TISCODE_SMTP_PASSWORD"].replace(" ", "")
@@ -48,50 +48,50 @@ def load_app_password():
     return ""
 
 EMAIL_APP_PASSWORD = load_app_password()
-OTP_TTL = 300             # kod 5 dakika geçerli
-OTP_MAX_TRIES = 3         # 3 yanlış denemeden sonra kod iptal
+OTP_TTL = 300             # code valid for 5 minutes
+OTP_MAX_TRIES = 3         # code cancelled after 3 wrong attempts
 otp = {"code": None, "start": None, "tries": 0}
 
-# Telefon onayını beklerken durumu tutan basit değişken
+# State of the TISCODE login currently waiting for a phone confirmation
 waiting = {"confirmed": False, "token": None}
 
-# --- TISCODE ses yapısı (31 dosyada ölçüldü, hepsi aynı) ---
-# 0-1 sn sessizlik | 1-3 sn OM (uyandırma) | 3-4 sn sessizlik | 4-9 sn INFOCORE (5 sn)
+# --- TISCODE audio layout (measured on all files with inspect_sounds.py) ---
+# 0-1 s silence | 1-3 s opening marker (OM) | 3-4 s silence | 4-9 s infocore (5 s)
 INFOCORE_START = 4.0      # saniye
 INFOCORE_MAX = 5          # hoca: maksimum 5 sn
-FADE = 0.03               # kesilen yerde "tık" sesi olmasın diye 30 ms yumuşak bitiş
+FADE = 0.03               # 30 ms fade-out so the cut does not click
 
-# --- Dengeli tasarım: "rastgele seçilmiş sabit liste" ---
-# 41 sesten SEQ_LEN tanesi BİR KERE rastgele seçilir (seed sabit → hep aynı liste).
-# Her telefon × süre hücresi bu aynı sesleri çalar (sırası hücreye göre karışık).
-# Böylece telefonlar/süreler AYNI seslerle karşılaştırılır.
+# --- Balanced design: a fixed list chosen at random once ---
+# SEQ_LEN sounds are drawn once from all files (fixed seed -> always the same list).
+# Every phone x length cell plays the same sounds, in a cell-specific shuffled order,
+# so phones and lengths are compared on identical sounds.
 SEQ_SEED = 42
-SEQ_LEN = 20             # 1. blok: ilk 10 ses (zaten ölçüldü) + 2. blok: 10 yeni ses
+SEQ_LEN = 20             # block 1: first 10 sounds, block 2: 10 more sounds
 BLOCK = 10
-EXP_START = "2026-10-07T04:00"     # gerçek deneylerin başladığı an (öncesi = kurulum denemeleri)
+EXP_START = "2026-10-07T04:00"     # start of the real trials (earlier rows = setup tests)
 
-DUPLICATES = {"20_2"}    # 20_2.wav = 20.wav ile birebir aynı dosya (md5) → deneylere girmez
+DUPLICATES = {"20_2"}    # 20_2.wav is byte-identical to 20.wav (same md5) -> excluded
 
-# Demo modunda (sunucu) sadece deneylerde en güvenilir çıkan sesler çalınır;
-# böylece platformda sadece bu infotislerin linki siteye yönlendirilir.
+# Demo mode (server) plays only the sounds that were most reliable in the trials,
+# so only these infotis links need to point to the public site.
 DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,7,11,32").split(",")
 
-# ONAY RÖLESİ: infotis linkleri canlı siteye (/ack) gider; yerel deney sunucusu
-# onayları oradan çeker. Böylece telefon herhangi bir ağdan (WiFi, 5G) onay verebilir
-# ve linkler IP değişince güncellenmek zorunda kalmaz. Sunucuda (demo modu) kapalı.
+# ACK RELAY: infotis links point to the public site (/ack); the local experiment
+# server polls confirmations from there. Phones can confirm from any network
+# (Wi-Fi, 5G) and links survive IP changes. Disabled on the server (demo mode).
 ACK_RELAY = os.environ.get("ACK_RELAY", "https://tiscode-2fa-demo.onrender.com" if EXPERIMENT_MODE else "")
 
 def all_sounds():
     return sorted(f[:-4] for f in os.listdir("static") if f.endswith(".wav"))
 
 def sequence():
-    first = random.Random(SEQ_SEED).sample(all_sounds(), BLOCK)          # ilk 10 (değişmez)
+    first = random.Random(SEQ_SEED).sample(all_sounds(), BLOCK)          # first 10 (unchanged)
     rest = [x for x in all_sounds() if x not in first and x not in DUPLICATES]
-    second = random.Random(SEQ_SEED + 1).sample(rest, BLOCK)              # 10 yeni ses
+    second = random.Random(SEQ_SEED + 1).sample(rest, BLOCK)              # 10 more sounds
     return first + second
 
 def next_in_sequence(phone, dur):
-    """Bu hücrede kaçıncı denemedeyiz? (results.csv'den sayılır → sunucu kapansa da kaldığı yerden)"""
+    """Next sound for this phone x length cell, counted from results.csv (survives restarts)."""
     done = 0
     if os.path.exists(RESULTS):
         for r in csv.DictReader(open(RESULTS)):
@@ -104,17 +104,17 @@ def next_in_sequence(phone, dur):
                 done += 1
     seq = sequence()
     first, second = seq[:BLOCK], seq[BLOCK:]
-    random.Random(f"{phone}-{dur}").shuffle(first)       # 1. blok: önceki sırayla aynı
-    random.Random(f"{phone}-{dur}-b").shuffle(second)    # 2. blok: kendi sırası
-    order = first + second                                # her hücre: önce eski 10, sonra yeni 10
+    random.Random(f"{phone}-{dur}").shuffle(first)       # block 1: same order as before
+    random.Random(f"{phone}-{dur}-b").shuffle(second)    # block 2: its own order
+    order = first + second                                # each cell: block 1, then block 2
     return order[done % SEQ_LEN], done
 
-# --- Deney kayıtları: her deneme results.csv'ye bir satır ---
+# --- Experiment log: one row per trial in results.csv ---
 RESULTS = "results.csv"
 FIELDS = ["time", "method", "sound", "duration_s", "phone", "result", "elapsed_s", "ack_device", "attempt"]
 
 def log_result(method, sound, duration, phone, result, elapsed, ack_device="", attempt=""):
-    # Eski dosyada yeni sütun yoksa başlığı güncelle (eski satırlar boş kalır)
+    # Upgrade the header if an older file lacks new columns (old rows stay empty)
     if os.path.exists(RESULTS):
         rows = list(csv.reader(open(RESULTS)))
         if rows and rows[0] != FIELDS:
@@ -128,13 +128,13 @@ def log_result(method, sound, duration, phone, result, elapsed, ack_device="", a
         w.writerow([datetime.datetime.now().isoformat(timespec="seconds"),
                     method, sound, duration, phone, result, elapsed, ack_device, attempt])
 
-# Bildirime basan telefonu tanı: IP + tarayıcıdaki cihaz bilgisi (örn. "iPhone", "SM-A515F")
+# Identify the confirming phone: IP + device info from the browser user agent
 def device_id():
     ua = request.headers.get("User-Agent", "")
     model = ua.split("(", 1)[1].split(")", 1)[0] if "(" in ua else ua[:60]
     return f"{request.remote_addr} | {model}"
 
-# Ana sayfa: login.html dosyasını göster
+# Home page: login form
 @app.route("/logout")
 def logout():
     session.clear()
@@ -144,7 +144,7 @@ def logout():
 def home():
     return open("login.html", encoding="utf-8").read()
 
-# Login butonu buraya gönderir: şifreyi kontrol et
+# Login form posts here: check the password
 @app.route("/login", methods=["POST"])
 def login():
     email = request.form["email"]
@@ -157,43 +157,43 @@ def login():
 
 def choose_html():
     h = open("choose.html", encoding="utf-8").read()
-    if not EXPERIMENT_MODE:   # demo: telefon menüsünü gizle (deney aracı)
+    if not EXPERIMENT_MODE:   # demo: hide the phone selector (experiment tool)
         h = h.replace('<label class="opt">Phone', '<label class="opt" style="display:none">Phone')
         h = h.replace('<label class="opt">Sound order', '<label class="opt" style="display:none">Sound order')
     return h
 
-# Deney kolaylığı: şifreyi bir kez girdikten sonra direkt 2FA seçimine dön
+# Experiment shortcut: after one password login, go straight back to the 2FA choice
 @app.route("/choose")
 def choose():
     if not EXPERIMENT_MODE or not session.get("logged_in"):
         return home()
     return choose_html()
 
-# TISCODE seçilince: sesi çal + telefon onayını beklemeye başla
+# TISCODE chosen: play the sound and wait for the phone confirmation
 @app.route("/tiscode")
 def tiscode():
-    n = request.args.get("n")            # TEST için: /tiscode?n=5 → infotis 5'i çal
-    dur = int(request.args.get("dur", INFOCORE_MAX))   # INFOCORE kaç saniye çalsın
+    n = request.args.get("n")            # testing: /tiscode?n=5 plays infotis 5
+    dur = int(request.args.get("dur", INFOCORE_MAX))   # infocore length in seconds
     dur = max(1, min(INFOCORE_MAX, dur))
     phone = request.args.get("phone", "unknown")
     order = request.args.get("order", "fixed")
     if n:
         chosen = n
-    elif order == "fixed" and EXPERIMENT_MODE:      # dengeli: hücrenin sıradaki sesi
+    elif order == "fixed" and EXPERIMENT_MODE:      # balanced: next sound of this cell
         chosen, _ = next_in_sequence(phone, dur)
-    elif not EXPERIMENT_MODE:                        # demo: güvenilir seslerden rastgele
+    elif not EXPERIMENT_MODE:                        # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
-    else:                                            # tamamen rastgele (gerçek 2FA gibi)
+    else:                                            # fully random (like real 2FA)
         chosen = random.choice([x for x in all_sounds() if x not in DUPLICATES])
-    if phone == "all":                   # ortak test: her çalma = yeni oturum numarası
+    if phone == "all":                   # simultaneous test: each play = new session id
         waiting["session"] = waiting.get("session", 0) + 1
         phone = f"all#{waiting['session']}"
     waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone,
-                   start=time.time(), acks={}, attempt=1, relay_seen=set())    # süre ölçümü başlıyor
+                   start=time.time(), acks={}, attempt=1, relay_seen=set())    # timer starts
     return playing_page()
 
-# Aynı ses tanınmadı → tekrar çal. İlk deneme "fail (attempt 1)" olarak kaydedilir,
-# süre İLK çalmadan itibaren saymaya devam eder (kullanıcının toplam bekleme süresi).
+# Not recognised -> play the same sound again. The first try is logged as "fail (attempt 1)";
+# the timer keeps running from the first play (the user's total wait).
 @app.route("/retry")
 def retry():
     if waiting.get("token") and not waiting["confirmed"] and not waiting["phone"].startswith("all#"):
@@ -215,7 +215,7 @@ def playing_page():
                 .replace('id="failbtn"', 'id="failbtn"' if EXPERIMENT_MODE else 'id="failbtn" style="display:none"')
                 .replace('id="retrybtn"', 'id="retrybtn"' if EXPERIMENT_MODE else 'id="retrybtn" style="display:none"'))
 
-# Sesi kes: OM'a dokunma, sadece INFOCORE'u ilk `dur` saniyede bitir
+# Shorten a sound: keep the OM, cut the infocore after `dur` seconds
 @app.route("/cut/<name>/<int:dur>")
 def cut(name, dur):
     path = os.path.join("static", os.path.basename(name) + ".wav")
@@ -235,7 +235,7 @@ def cut(name, dur):
         out.writeframes(a.astype(dtype).tobytes())
     return Response(buf.getvalue(), mimetype="audio/wav")
 
-# Telefon tepki vermedi → başarısız deneme olarak kaydet
+# Phone did not react -> log a failed trial
 @app.route("/fail")
 def fail():
     if waiting.get("token") and waiting["phone"].startswith("all#"):
@@ -248,27 +248,28 @@ def fail():
         waiting["token"] = None
     return choose_html()
 
-# Telefon bildirimindeki linke basınca buraya gelir (ONAY)
-# Onay kaydı: telefonun /ack linkine bastığı an (t = sunucu saati)
+# Register a confirmation at time t (server clock)
 def register_ack(dev, t):
-    if waiting["phone"] == "test":        # /test sayfası: deney kaydı yok
+    if waiting["phone"] == "test":        # /test page: not logged
         waiting["confirmed"] = True
         return f"<h1>✅ Test OK: infotis {waiting['token']} reached the computer.</h1>"
     if waiting["phone"].startswith("all#"):
-        if dev not in waiting["acks"]:     # her telefon bir kez sayılır
+        if dev not in waiting["acks"]:     # each phone counted once
             waiting["acks"][dev] = round(t - waiting["start"], 1)
             log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
                        "success", waiting["acks"][dev], dev)
         return "<h1>✅ Confirmed! Go back to your computer.</h1>"
-    if not waiting["confirmed"]:          # aynı onay iki kez sayılmasın
+    if not waiting["confirmed"]:          # never count the same confirmation twice
         waiting["confirmed"] = True
         waiting["elapsed"] = round(t - waiting["start"], 1)
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
                    "success", waiting["elapsed"], dev, waiting.get("attempt", 1))
     return "<h1>✅ Confirmed! Go back to your computer.</h1>"
 
-# Telefon bildirimindeki linke basınca buraya gelir (ONAY)
-# Her basış relay_log'a da yazılır: yerel deney sunucusu onayları buradan çeker.
+# The phone opens this link when the user taps the notification.
+# Every hit is also kept in relay_log for the local experiment server.
+# Known limitation: the link carries no per-login secret, so anyone who calls it while
+# a login is pending confirms that login. A real system needs a one-time token.
 relay_log = []
 
 @app.route("/ack")
@@ -277,14 +278,14 @@ def ack():
     t, dev = time.time(), device_id()
     relay_log.append({"t": t, "dev": dev})
     del relay_log[:-50]
-    # token verilmişse eşleşmeli; verilmemişse bekleyen girişi onayla (demo kolaylığı)
+    # a given token must match; without one the pending login is confirmed (demo)
     if waiting.get("token") and (token is None or token == waiting["token"]):
         return register_ack(dev, t)
     if token is not None:
         return "<h1>❌ Wrong or expired token</h1>"
     return "<h1>✅ Confirmation sent. Go back to your computer.</h1>"
 
-# Yerel deney sunucusu bunu sorar: belli bir andan sonra gelen onaylar
+# Polled by the local experiment server: confirmations after time t
 @app.route("/acks-since")
 def acks_since():
     t = float(request.args.get("t", 0))
@@ -292,13 +293,13 @@ def acks_since():
     r.headers["Access-Control-Allow-Origin"] = "*"
     return r
 
-# Test sayfası bir sesi çalınca: o sesi "bekleniyor" yap (kayıt tutulmaz)
+# Test page: arm a sound as pending (not logged)
 @app.route("/arm/<name>")
 def arm(name):
     waiting.update(confirmed=False, token=name, phone="test", start=time.time(), acks={}, relay_seen=set())
     return jsonify(ok=True)
 
-# TEST sayfası: tüm infotis'leri tek ekranda çal, hangileri tanınıyor bul
+# Test page: play every infotis to check which ones the phone recognises
 @app.route("/test")
 def test():
     def key(x):
@@ -316,8 +317,8 @@ def test():
                   f'</div>')
     return (f'<html><head><meta charset="utf-8"><title>Infotis Test</title></head>'
             f'<body style="font-family:sans-serif;padding:20px;background:#f5f5f7">'
-            f'<h1>🔊 Infotis Test ({len(sounds)} ses)</h1>'
-            f'<p>Her birini <b>▶ çal</b>, telefon yakın tut, hangisi <b>bildirim veriyor</b> not al.</p>'
+            f'<h1>🔊 Infotis Test ({len(sounds)} sounds)</h1>'
+            f'<p>Play each sound with the phone nearby; a card turns green when the phone confirms it.</p>'
             f'<div style="display:flex;flex-wrap:wrap">{cards}</div>'
             f'''<script>
 let current = null;
@@ -340,7 +341,7 @@ setInterval(async () => {{
 </script></body></html>''')
 
 
-# Login sayfası bunu sürekli sorar: onay geldi mi?
+# Polled by the playing page: has the phone confirmed?
 @app.route("/status")
 def status():
     if ACK_RELAY and waiting.get("token") and (not waiting["confirmed"] or waiting["phone"].startswith("all#")):
@@ -356,7 +357,7 @@ def status():
             print("relay error:", e)
     return jsonify(confirmed=waiting["confirmed"], acks=waiting.get("acks", {}))
 
-# Ortak başarı sayfası (süre + çıkış butonu ile)
+# Shared success page (time + log-out button)
 def success_page(method, seconds):
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Success</title>
 <style>body{{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);
@@ -374,13 +375,13 @@ text-decoration:none;border-radius:10px;font-weight:bold}}a:hover{{opacity:.9}}<
 </div></body></html>'''
 
 
-# Onay gelince gösterilecek başarı sayfası (TISCODE)
+# TISCODE success page
 @app.route("/success")
 def success():
     return success_page("TISCODE", waiting.get("elapsed", "?"))
 
 
-# Deney özeti: yöntem / telefon / süre bazında başarı oranı ve ortalama süre
+# Experiment summary: success rate and mean time per method / phone / length
 @app.route("/results")
 def results():
     rows = list(csv.DictReader(open(RESULTS))) if os.path.exists(RESULTS) else []
@@ -395,8 +396,8 @@ def results():
         avg = f"{sum(ok)/len(ok):.1f}" if ok else "-"
         table += (f"<tr><td>{method}</td><td>{phone}</td><td>{dur}</td><td>{len(rs)}</td>"
                   f"<td>{len(ok)} ({100*len(ok)//len(rs)}%)</td><td>{avg}</td></tr>")
-    # Ortak test: her oturumda hangi cihaz tepki verdi?
-    sessions = {}                                   # süre -> oturum sayısı
+    # Simultaneous test: which devices reacted in each session?
+    sessions = {}                                   # length -> number of sessions
     for r in rows:
         if r["result"] == "session_end":
             sessions[r["duration_s"]] = sessions.get(r["duration_s"], 0) + 1
@@ -423,14 +424,14 @@ def results():
 
 
 # ---------- AUTHENTICATOR OTP (TOTP, RFC 6238 — Google Authenticator) ----------
-# Telefon uygulaması ve sunucu aynı gizli anahtarı (secret) paylaşır.
-# Her 30 saniyede: kod = HMAC-SHA1(secret, zaman // 30) → 6 haneye indir.
-# İnternet/e-posta gerekmez; iki taraf da aynı saati kullandığı için aynı kodu bulur.
+# The phone app and the server share a secret key.
+# Every 30 s: code = HMAC-SHA1(secret, time // 30), truncated to 6 digits.
+# No network needed: both sides use the same clock, so they compute the same code.
 TOTP_STEP = 30
-TOTP_FILE = ".totp_secret"        # gizli anahtar (gitignore'da, GitHub'a gitmez)
+TOTP_FILE = ".totp_secret"        # secret key (git-ignored)
 
 def totp_secret():
-    if os.environ.get("TOTP_SECRET"):  # sunucuda sabit kalsın (her deploy'da yeniden QR gerekmesin)
+    if os.environ.get("TOTP_SECRET"):  # fixed on the server (no new QR scan after each deploy)
         return os.environ["TOTP_SECRET"]
     if not os.path.exists(TOTP_FILE):
         open(TOTP_FILE, "w").write(base64.b32encode(secrets.token_bytes(20)).decode())
@@ -459,7 +460,7 @@ code{{word-break:break-all;background:#f3f4f6;padding:4px 6px;border-radius:6px}
 a{{color:#764ba2;font-size:13px}}</style></head>
 <body><div class="kart">{body}</div></body></html>'''
 
-# Bir kere yapılır: telefondaki Authenticator uygulamasıyla QR'ı tara
+# One-time setup: scan the QR code with an Authenticator app
 @app.route("/totp-setup")
 def totp_setup():
     secret = totp_secret()
@@ -473,11 +474,11 @@ def totp_setup():
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>new QRCode(document.getElementById("qr"), {{text: "{uri}", width: 200, height: 200}});</script>''')
 
-# Giriş: kullanıcı uygulamadaki 6 haneli kodu yazar
+# Login: the user types the 6-digit code from the app
 @app.route("/totp")
 def totp_page(error=""):
     if not error:
-        totp["start"] = time.time()                    # süre ölçümü başlıyor
+        totp["start"] = time.time()                    # timer starts
         totp["phone"] = request.args.get("phone", "")
     err = f"<p style='color:#c62828;font-weight:bold'>{error}</p>" if error else ""
     return card("Authenticator", f'''<h1>🔢 Authenticator</h1>
@@ -489,22 +490,16 @@ def totp_page(error=""):
 
 @app.route("/verify-totp", methods=["POST"])
 def verify_totp():
-    # Uygulama kodu "123 456" gibi gösterir → sadece rakamları al
+    # Apps show the code as "123 456" -> keep digits only
     entered = "".join(ch for ch in request.form.get("code", "") if ch.isdigit())
     if not totp["start"]:
         return totp_page()
     now = int(time.time()) // TOTP_STEP
     elapsed = round(time.time() - totp["start"], 1)
-    # GEÇİCİ TANI: girilen kod vs beklenen kodlar
-    with open("totp_debug.log", "a") as f:
-        f.write(f"{datetime.datetime.now():%H:%M:%S} raw={request.form.get('code')!r} "
-                f"entered={entered} expected={[totp_code(totp_secret(), c) for c in (now-1, now, now+1)]}")
-        skew = [d for d in range(-120, 121) if totp_code(totp_secret(), now + d) == entered]
-        f.write(f" clock_offset_steps={skew}\n")   # boş = anahtar farklı, dolu = saat kayması
-    # Saat kayması için bir önceki / sonraki 30 sn'lik kodu da kabul et
+    # Accept the previous / next 30 s code to tolerate clock drift
     for c in (now - 1, now, now + 1):
         if hmac.compare_digest(entered, totp_code(totp_secret(), c)):
-            if c == totp["last_counter"]:              # aynı kod iki kez kullanılamaz
+            if c == totp["last_counter"]:              # a code can be used only once
                 return totp_page("❌ Code already used. Wait for the next one.")
             totp["last_counter"] = c
             totp["start"] = None
@@ -514,15 +509,15 @@ def verify_totp():
     return totp_page("❌ Wrong code, try again.")
 
 
-# ---------- EMAIL OTP (ikinci 2FA yöntemi) ----------
-# Kullanıcı email OTP seçince: 6 haneli kod üret, email gönder, kodu iste.
+# ---------- OTP CODE (e-mail, or phone inbox page as fallback) ----------
+# Generate a 6-digit code, deliver it, ask the user to type it.
 @app.route("/email-otp")
 def email_otp():
-    code = f"{secrets.randbelow(10**6):06d}"   # güvenli rastgele 6 haneli kod
+    code = f"{secrets.randbelow(10**6):06d}"   # cryptographically random 6-digit code
     otp.update(code=code, start=time.time(), tries=0, sent=False,
-               phone=request.args.get("phone", ""))  # süre ölçümü başlıyor
+               phone=request.args.get("phone", ""))  # timer starts
 
-    if EMAIL_APP_PASSWORD:              # app password varsa gerçek email gönder
+    if EMAIL_APP_PASSWORD:              # send a real e-mail if an app password is set
         try:
             msg = EmailMessage()
             msg["Subject"] = f"Your login code: {code}"
@@ -548,11 +543,11 @@ def email_otp():
     return otp_page(note)
 
 
-# ---------- TELEFON GELEN KUTUSU (Gmail olmadan OTP teslimi) ----------
-# Telefonun tarayıcısında http://<laptop-IP>:5002/inbox açık durur.
-# Yeni kod üretilince sayfada belirir + titreşir (e-posta bildirimi gibi).
+# ---------- PHONE INBOX (OTP and push delivery without e-mail) ----------
+# The phone keeps http://<laptop-IP>:5002/inbox open in its browser.
+# New codes and push requests appear there and the phone vibrates.
 def inbox_url():
-    # Yerelde telefonun gireceği adres = bilgisayarın ağ IP'si; sunucuda = sitenin kendi adresi
+    # Locally: the laptop's network IP; on the server: the site's own address
     host = request.host.split(":")[0]
     if host in ("localhost", "127.0.0.1"):
         return f"http://{local_ip()}:5002/inbox"
@@ -581,9 +576,21 @@ def inbox():
 <div id="box" class="mail"><p class="muted">No new messages</p></div>
 <script>
 let last = null;
+async function answer(a) { await fetch("/push-" + a, {method: "POST"}); }
 setInterval(async () => {
   const d = await (await fetch("/inbox-status")).json();
   const box = document.getElementById("box");
+  if (d.push) {
+    if (last !== "push-" + d.push) {
+      last = "push-" + d.push;
+      box.innerHTML = '<p class="muted">TISCODE Demo · Login request</p><h2>Is this you trying to sign in?</h2>' +
+        '<button onclick="answer(\'approve\')" style="font-size:20px;padding:14px 28px;margin:8px;background:#16a34a;color:white;border:none;border-radius:12px">Approve</button>' +
+        '<button onclick="answer(\'deny\')" style="font-size:20px;padding:14px 28px;margin:8px;background:#e5e7eb;border:none;border-radius:12px">Deny</button>';
+      box.classList.remove("new"); void box.offsetWidth; box.classList.add("new");
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+    return;
+  }
   if (!d.code) { box.innerHTML = '<p class="muted">No new messages</p>'; last = null; return; }
   if (d.code !== last) {
     last = d.code;
@@ -598,10 +605,52 @@ setInterval(async () => {
 @app.route("/inbox-status")
 def inbox_status():
     alive = otp["code"] and not otp.get("sent") and time.time() - otp["start"] <= OTP_TTL
-    return jsonify(code=otp["code"] if alive else None)
+    p = push["id"] if push["pending"] and time.time() - push["start"] <= OTP_TTL else None
+    return jsonify(code=otp["code"] if alive else None, push=p)
 
 
-# Kod giriş sayfası (hata mesajı ile tekrar gösterilebilir)
+# ---------- PUSH APPROVAL ("Is this you?", as in Google / Microsoft / Duo) ----------
+# Closest competitor to TISCODE: both need one tap. Push does not prove the phone
+# is in the same room (open to MFA-fatigue attacks).
+push = {"pending": False, "id": 0, "start": None, "phone": "", "approved": False}
+
+@app.route("/push")
+def push_start():
+    push.update(pending=True, id=push["id"] + 1, start=time.time(), approved=False,
+                phone=request.args.get("phone", ""))     # timer starts
+    return card("Push approval", f'''<h1>📲 Check your phone</h1>
+<p>A login request was sent to your phone.<br>Tap <b>Approve</b> to sign in.</p>
+<p style="color:#888;font-size:12px">Phone: open <b>{inbox_url()}</b></p>
+<script>setInterval(async () => {{
+  const d = await (await fetch("/push-status")).json();
+  if (d.approved) location.href = "/push-success";
+  if (d.denied) location.href = "/choose";
+}}, 1000);</script>''')
+
+@app.route("/push-approve", methods=["POST"])
+def push_approve():
+    if push["pending"]:
+        push.update(pending=False, approved=True, elapsed=round(time.time() - push["start"], 1))
+        log_result("Push approval", "", "", push["phone"], "success", push["elapsed"])
+    return jsonify(ok=True)
+
+@app.route("/push-deny", methods=["POST"])
+def push_deny():
+    if push["pending"]:
+        push.update(pending=False, denied=True)
+        log_result("Push approval", "", "", push["phone"], "denied", round(time.time() - push["start"], 1))
+    return jsonify(ok=True)
+
+@app.route("/push-status")
+def push_status():
+    return jsonify(approved=push["approved"], denied=push.pop("denied", False))
+
+@app.route("/push-success")
+def push_success():
+    return success_page("Push approval", push.get("elapsed", "?"))
+
+
+# Code entry page (re-shown with an error message)
 def otp_page(note, error=""):
     err = f"<p style='color:#c62828;font-weight:bold'>{error}</p>" if error else ""
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Email OTP</title>
@@ -622,7 +671,7 @@ border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer}}
 <a class="small" href="/email-otp">🔁 Send a new code</a></div></body></html>'''
 
 
-# Girilen kodu kontrol et (süre, deneme hakkı ve süresi dolma kontrolü ile)
+# Check the code (expiry, attempt limit, one-time use)
 @app.route("/verify-otp", methods=["POST"])
 def verify_otp():
     entered = request.form.get("code", "").strip()
@@ -635,7 +684,7 @@ def verify_otp():
         log_result(method, "", "", otp.get("phone", ""), "expired", elapsed)
         return otp_page("", "⌛ Code expired. Request a new one.")
     if secrets.compare_digest(entered, otp["code"]):
-        otp["code"] = None                  # kod tek kullanımlık
+        otp["code"] = None                  # one-time use
         log_result(method, "", "", otp.get("phone", ""), "success", elapsed)
         return success_page("Email OTP", elapsed)
     otp["tries"] += 1
@@ -647,5 +696,5 @@ def verify_otp():
     return otp_page("", f"❌ Wrong code — {left} attempt(s) left.")
 
 if __name__ == "__main__":
-    # host=0.0.0.0: telefonun da (aynı WiFi) ulaşabilmesi için
+    # host=0.0.0.0 so phones on the same network can reach the server
     app.run(debug=True, host="0.0.0.0", port=5002)

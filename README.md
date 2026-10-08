@@ -1,65 +1,82 @@
-# TISCODE 2FA — Proof of Concept
+# TISCODE 2FA proof of concept
 
-A web login demo that uses **TISCODE** (a short sound code) as the second authentication factor.
+A small web login that uses a TISCODE (a short sound code) as the second factor.
+Built during my Erasmus+ internship at the University of Padova, October 2026.
 
-Developed during an Erasmus+ internship at the University of Padova (UNIPD), 2026.
+![Login and second-factor choice](docs/choose.png)
 
 ## How it works
 
-1. The user logs in with e-mail and password.
-2. The user chooses **TISCODE** as the second factor.
-3. The browser plays a short TISCODE sound: an opening marker (OM) followed by an infocore.
-4. The TISCODE app on the user's phone recognises the sound and shows a notification.
-5. The user taps the notification. The phone opens the `/ack` link, which confirms the login on the website.
+After the password, the user picks TISCODE. The browser plays a short sound
+(an opening marker followed by an infocore). The TISCODE app on the phone
+recognises it and shows a notification. Tapping the notification opens the
+`/ack` link, which completes the login on the website.
 
-The sound only reaches phones in the same room, so a successful login also proves that the user's phone is physically close to the computer.
+Because the code travels as sound, the login only succeeds when the phone is
+in the same room as the computer.
 
-For comparison, two classic one-time-code methods are also implemented:
+![TISCODE waiting for the phone](docs/playing.png)
 
-- **OTP code**: a 6-digit code is delivered to the phone (`/inbox` page). This simulates SMS or e-mail delivery without network delay.
-- **Authenticator app**: a standard TOTP code (RFC 6238), compatible with Google or Microsoft Authenticator (`/totp-setup` to scan the QR code).
+For comparison the demo also has three common second factors:
 
-## Features
+- a 6-digit code sent to the phone (simulates SMS / e-mail, shown on the `/inbox` page)
+- an Authenticator app code (TOTP, RFC 6238, works with Google Authenticator; set up at `/totp-setup`)
+- a push approval ("Is this you?" with Approve / Deny on the `/inbox` page)
 
-- Selectable TISCODE length (5 to 1 s). Only the infocore is shortened; the opening marker is kept.
-- Login time is measured for every method.
-- **Experiment mode** for user studies: phone selector, a balanced fixed sound list, retry and "not recognised" buttons, and automatic logging to `results.csv`.
-- `analyze.py` computes recognition rates with 95% Wilson confidence intervals and timing statistics with Mann-Whitney U tests, and draws the charts.
+## Results so far
 
-## Run locally
+Two lab phones (Huawei Honor 9X and Motorola Moto E7), 20 sounds, 3 lengths.
+With the full 5 s infocore TISCODE was recognised on the first try in 80-85% of
+trials; 3 s worked on one phone but not the other, and 1 s never worked.
+
+![Recognition rate vs. infocore length](docs/recognition_vs_length.png)
+
+On the same phones an Authenticator code was faster (median 7-9 s against
+14-17 s for TISCODE) but much less consistent.
+
+![TISCODE vs. other methods](docs/method_by_phone.png)
+
+## Running it
 
 ```bash
 pip install -r requirements.txt
-printf 'you@example.com\nyour-password\n' > .demo_login   # demo account (not committed)
-python3 app.py                                           # http://localhost:5002
+python3 app.py          # http://localhost:5002
 ```
 
-Without a `.demo_login` file the demo account is `demo@tiscode.test` / `demo`.
-Phones must be on the same network and open `http://<computer-IP>:5002/...`.
+The demo account is `demo@tiscode.test` / `demo` unless you create a
+`.demo_login` file (first line e-mail, second line password). Phones must be on
+the same network and open `http://<computer-IP>:5002/inbox` for the code and
+push methods.
 
-## Data
+Running locally starts in experiment mode: a phone selector, a fixed balanced
+list of sounds, retry / "not recognised" buttons, and every trial is written to
+`results.csv`. Set `EXPERIMENT_MODE=false` for the plain demo.
 
-`results.csv` holds the trials from 7 October 2026 (two lab phones and one iPhone).
-Run `python3 analyze.py` to rebuild the tables and charts in `analysis/`.
+## Files
 
-## Deploy (Render)
+- `app.py` - the Flask web app (login, all second factors, experiment logging)
+- `analyze.py` - recognition rates (95% Wilson intervals), timing statistics
+  (Mann-Whitney U) and the charts; run `python3 analyze.py`
+- `inspect_sounds.py` - measures where the opening marker and infocore start in
+  each sound file and finds duplicate files (source of the constants in `app.py`)
+- `results.csv` - the trials from 7 October 2026
+- `static/` - the TISCODE sound files
 
-Settings: start command `gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app`.
+## Deploying
 
-Use a **single worker**, because the demo keeps the login state in memory.
+The public demo runs on Render with
+`gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app` (one worker, because the
+login state is kept in memory) and these environment variables:
+`DEMO_EMAIL`, `DEMO_PASSWORD`, `EXPERIMENT_MODE=false`, `FLASK_SECRET`,
+`TOTP_SECRET`. The TISCODE links on the platform point to
+`https://<app>.onrender.com/ack`.
 
-Environment variables:
+## Known limitations
 
-| Variable | Purpose |
-|---|---|
-| `DEMO_EMAIL`, `DEMO_PASSWORD` | demo account |
-| `EXPERIMENT_MODE` | `false` = public demo (experiment tools hidden) |
-| `FLASK_SECRET` | random string (session cookies) |
-| `TOTP_SECRET` | base32 key for the Authenticator demo |
-
-The TISCODE links on the platform must point to `https://<your-app>.onrender.com/ack`.
-
-## Limitations
-
-- The demo serves one login at a time (in-memory state). It is not meant for production.
-- The current TISCODE app needs one tap on the notification. A zero-touch flow, where the app confirms automatically, is future work.
+- The `/ack` link has no per-login secret: anyone who calls it while a login is
+  waiting would confirm that login. A real deployment needs a one-time token in
+  the link for each login.
+- One login at a time (state in memory), plain-text demo password check.
+- The TISCODE app still needs one tap on the notification; confirming
+  automatically (zero-touch) is future work.
+- iPhone trials and a 2 s / 4 s infocore are still to be done.

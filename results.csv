@@ -197,3 +197,4 @@ time,method,sound,duration_s,phone,result,elapsed_s,ack_device,attempt
 2026-10-07T10:32:34,Authenticator OTP,,,phoneB,success,7.4,,
 2026-10-07T10:33:05,Authenticator OTP,,,phoneB,success,5.7,,
 2026-10-07T10:33:35,Authenticator OTP,,,phoneB,success,9.6,,
+2026-10-08T16:41:01,TISCODE,36,5,phoneA,fail,3.8,,1
