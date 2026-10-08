@@ -105,3 +105,9 @@ login state is kept in memory) and these environment variables:
 - The TISCODE app still needs one tap on the notification; confirming
   automatically (zero-touch) is future work.
 - iPhone trials and a 2 s / 4 s infocore are still to be done.
+
+## Use of AI tools
+
+Parts of the code in this repository were written with the help of an AI coding
+assistant (Claude). The study design, the trials on the phones and the
+interpretation of the results are my own work.
