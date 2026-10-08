@@ -5,6 +5,30 @@ Built during my Erasmus+ internship at the University of Padova, October 2026.
 
 ![Login and second-factor choice](docs/choose.png)
 
+## Try it yourself
+
+Live demo: **https://tiscode-2fa-demo.onrender.com**
+Login: `demo@tiscode.test` / `tiscode-demo`
+
+The free server sleeps when unused, so the first page can take about 30 seconds
+to load. After that it is fast.
+
+After logging in, choose one second factor:
+
+- **OTP code** - open `https://tiscode-2fa-demo.onrender.com/inbox` on your
+  phone, read the 6-digit code there and type it on the computer.
+- **Push approval** - keep the same `/inbox` page open on the phone and tap
+  **Approve**.
+- **Authenticator app** - open `/totp-setup`, scan the QR code with Google or
+  Microsoft Authenticator, then type the 6-digit code from the app.
+- **TISCODE** - the computer plays one of the sounds 7, 11, 18, 32 or 36. A phone
+  with the TISCODE app that knows these infotis shows a notification; tapping it
+  completes the login. The links of these infotis point to `/ack` on this site.
+
+To use your own infotis instead: put their `.wav` files in `static/`, set each
+infotis link on the TISCODE platform to `https://<your-site>/ack`, and set the
+`DEMO_SOUNDS` environment variable to their names (for example `1,2,3`).
+
 ## How it works
 
 After the password, the user picks TISCODE. The browser plays a short sound
@@ -43,7 +67,7 @@ pip install -r requirements.txt
 python3 app.py          # http://localhost:5002
 ```
 
-The demo account is `demo@tiscode.test` / `demo` unless you create a
+The demo account is `demo@tiscode.test` / `tiscode-demo` unless you create a
 `.demo_login` file (first line e-mail, second line password). Phones must be on
 the same network and open `http://<computer-IP>:5002/inbox` for the code and
 push methods.

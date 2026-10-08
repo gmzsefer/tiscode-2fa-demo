@@ -31,7 +31,7 @@ def load_login():
     if os.path.exists(".demo_login"):
         lines = open(".demo_login", encoding="utf-8").read().splitlines()
         return lines[0].strip(), lines[1].strip()
-    return "demo@tiscode.test", "demo"
+    return "demo@tiscode.test", "tiscode-demo"
 
 EMAIL, PASSWORD = load_login()
 
