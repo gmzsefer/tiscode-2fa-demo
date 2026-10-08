@@ -7,6 +7,18 @@ import numpy as np
 
 app = Flask(__name__)
 
+# Optional redirect mode: a second deployment with REDIRECT_TO set forwards every
+# request (path and query included) to the main site. Used for an old address that
+# some phones still have cached (tiscode-demo.onrender.com -> tiscode-2fa-demo).
+REDIRECT_TO = os.environ.get("REDIRECT_TO", "").rstrip("/")
+if REDIRECT_TO:
+    from flask import redirect
+
+    @app.before_request
+    def forward_everything():
+        qs = request.query_string.decode()
+        return redirect(REDIRECT_TO + request.path + (("?" + qs) if qs else ""), code=302)
+
 # Login state lives in a signed browser cookie (session), so it survives server restarts.
 # The signing key is stored in a local file (git-ignored).
 # On the server (Render) the FLASK_SECRET environment variable is used.
