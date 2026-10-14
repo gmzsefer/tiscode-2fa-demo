@@ -555,7 +555,8 @@ def started():
 # Downloads for the lab account (the free server does not keep files across restarts)
 @app.route("/download/<name>")
 def download(name):
-    if not lab() or name not in ("results.csv", "collisions.csv") or not os.path.exists(name):
+    key_ok = os.environ.get("RESULTS_KEY") and request.args.get("key") == os.environ["RESULTS_KEY"]
+    if not (lab() or key_ok) or name not in ("results.csv", "collisions.csv") or not os.path.exists(name):
         return "<h1>Nothing to download</h1>", 404
     return Response(open(name).read(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={name}"})

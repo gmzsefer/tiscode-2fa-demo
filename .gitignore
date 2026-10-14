@@ -13,3 +13,4 @@ __pycache__/
 .DS_Store
 sound_labels.csv
 .claude/
+.results_key
