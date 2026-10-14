@@ -19,6 +19,7 @@ from scipy.stats import mannwhitneyu
 
 OUT = "analysis"
 PHONES = {"phoneA": "Lab phone A", "phoneB": "Lab phone B", "gamze": "My phone"}
+ALL_MODE_PHONES = ["phoneA", "phoneB"]   # phones used side by side in the simultaneous test
 OM_OFFSET = 4.0           # leading silence + OM + gap before the infocore (s)
 
 
@@ -65,14 +66,36 @@ def main():
     tis_rows = [r for r in rows if r["method"] == "TISCODE" and r["phone"] in PHONES
                 and r["result"] in ("success", "fail")]
     single = [r for r in tis_rows if attempt(r) == 1]      # main metric: recognised on the FIRST attempt
+    # Simultaneous sessions (all#) also give one first-attempt outcome per named phone
+    # (phones name themselves via /whoami, so ack_device starts with "phoneA | ...").
+    have = {(r["phone"], r["duration_s"], r["sound"]) for r in single}
+    sess = defaultdict(lambda: {"sound": None, "dur": None, "hit": set(), "ended": False})
+    for r in rows:
+        if r["method"] == "TISCODE" and r["phone"].startswith("all#"):
+            x = sess[r["phone"]]
+            x["sound"], x["dur"] = r["sound"], r["duration_s"]
+            if r["result"] == "success":
+                x["hit"].add(r["ack_device"].split(" | ")[0])
+            if r["result"] == "session_end":
+                x["ended"] = True
+    synth = []
+    for x in sess.values():
+        if not x["ended"]:
+            continue
+        for ph in ALL_MODE_PHONES:
+            if (ph, x["dur"], x["sound"]) not in have:
+                synth.append({"phone": ph, "duration_s": x["dur"], "sound": x["sound"],
+                              "result": "success" if ph in x["hit"] else "fail"})
+    recog = single + synth                               # recognition: single + simultaneous
+
     cell = defaultdict(lambda: [0, 0])                 # (phone, dur) -> [successes, total]
-    for r in single:
+    for r in recog:
         c = cell[(r["phone"], int(r["duration_s"]))]
         c[1] += 1
         c[0] += r["result"] == "success"
 
     # simultaneous test (all#): per device, per session
-    sessions = defaultdict(set)                        # dur -> oturum id'leri
+    sessions = defaultdict(set)                        # dur -> session ids
     dev_hits = defaultdict(set)                        # (device, dur) -> sessions it recognised
     for r in rows:
         if r["phone"].startswith("all#") and r["method"] == "TISCODE":
@@ -223,7 +246,7 @@ def main():
     # ---- 3) Per-sound recognition (and per sound type if sound_labels.csv exists) ----
     # sound x length table: which sound is recognised at which length (all phones)
     ps = defaultdict(lambda: [0, 0])                   # (sound, length) -> [successes, total]
-    for r in single:
+    for r in recog:
         c = ps[(r["sound"], r["duration_s"])]
         c[1] += 1; c[0] += r["result"] == "success"
     durs = sorted({d for (_, d) in ps}, key=int, reverse=True)

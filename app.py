@@ -74,12 +74,14 @@ INFOCORE_MAX = 5          # hoca: maksimum 5 sn
 FADE = 0.03               # 30 ms fade-out so the cut does not click
 
 # --- Balanced design: a fixed list chosen at random once ---
-# SEQ_LEN sounds are drawn once from all files (fixed seed -> always the same list).
+# The sound list is fixed (see BLOCK1 / BLOCK2 below) and new files form block 3.
 # Every phone x length cell plays the same sounds, in a cell-specific shuffled order,
 # so phones and lengths are compared on identical sounds.
 SEQ_SEED = 42
-SEQ_LEN = 20             # block 1: first 10 sounds, block 2: 10 more sounds
-BLOCK = 10
+# Blocks 1 and 2 were drawn at random (seed 42) from the first 40 files and are frozen
+# here, so adding new files never changes them. Block 3 = every other sound.
+BLOCK1 = ["9", "14-25", "10", "20", "19", "18", "14-26", "14", "13", "36"]
+BLOCK2 = ["11", "2", "4-22", "5", "14-30", "32", "21", "4", "12-24", "7"]
 EXP_START = "2026-10-07T04:00"     # start of the real trials (earlier rows = setup tests)
 
 DUPLICATES = {"20_2"}    # 20_2.wav is byte-identical to 20.wav (same md5) -> excluded
@@ -97,10 +99,10 @@ def all_sounds():
     return sorted(f[:-4] for f in os.listdir("static") if f.endswith(".wav"))
 
 def sequence():
-    first = random.Random(SEQ_SEED).sample(all_sounds(), BLOCK)          # first 10 (unchanged)
-    rest = [x for x in all_sounds() if x not in first and x not in DUPLICATES]
-    second = random.Random(SEQ_SEED + 1).sample(rest, BLOCK)              # 10 more sounds
-    return first + second
+    third = [x for x in all_sounds() if x not in BLOCK1 + BLOCK2 and x not in DUPLICATES]
+    return BLOCK1 + BLOCK2 + third
+
+ALL_MODE_PHONES = ["phoneA", "phoneB"]   # phones placed side by side in the simultaneous test
 
 def next_in_sequence(phone, dur):
     """Next sound for this phone x length cell, counted from results.csv (survives restarts)."""
@@ -115,11 +117,27 @@ def next_in_sequence(phone, dur):
                   and r.get("attempt", "") in ("", "1")):
                 done += 1
     seq = sequence()
-    first, second = seq[:BLOCK], seq[BLOCK:]
+    if phone == "all":
+        played, per_phone = set(), {p: set() for p in ALL_MODE_PHONES}
+        if os.path.exists(RESULTS):
+            for r in csv.DictReader(open(RESULTS)):
+                if r["time"] < EXP_START or r["method"] != "TISCODE" or r["duration_s"] != str(dur):
+                    continue
+                if r["phone"].startswith("all#"):
+                    played.add(r["sound"])
+                elif r["phone"] in per_phone and r.get("attempt", "") in ("", "1") \
+                        and r["result"] in ("success", "fail"):
+                    per_phone[r["phone"]].add(r["sound"])
+        both = set.intersection(*per_phone.values())
+        todo = [x for x in seq if x not in played and x not in both]
+        random.Random(f"all-{dur}").shuffle(todo)
+        return (todo[0] if todo else seq[0]), len(seq) - len(todo)
+    first, second, third = BLOCK1[:], BLOCK2[:], seq[len(BLOCK1) + len(BLOCK2):]
     random.Random(f"{phone}-{dur}").shuffle(first)       # block 1: same order as before
-    random.Random(f"{phone}-{dur}-b").shuffle(second)    # block 2: its own order
-    order = first + second                                # each cell: block 1, then block 2
-    return order[done % SEQ_LEN], done
+    random.Random(f"{phone}-{dur}-b").shuffle(second)    # block 2: same order as before
+    random.Random(f"{phone}-{dur}-c").shuffle(third)     # block 3: its own order
+    order = first + second + third                        # each cell: block 1, 2, then 3
+    return order[done % len(order)], done
 
 # --- Experiment log: one row per trial in results.csv ---
 RESULTS = "results.csv"
@@ -144,7 +162,20 @@ def log_result(method, sound, duration, phone, result, elapsed, ack_device="", a
 def device_id():
     ua = request.headers.get("User-Agent", "")
     model = ua.split("(", 1)[1].split(")", 1)[0] if "(" in ua else ua[:60]
-    return f"{request.remote_addr} | {model}"
+    label = request.cookies.get("tiscode_phone", "")
+    return f"{label + ' | ' if label else ''}{request.remote_addr} | {model}"
+
+# Name a phone once (open on that phone, in the browser the TISCODE app uses):
+# /whoami?name=phoneA. Its later confirmations carry that name, so phones on the
+# same network with the same model can be told apart in the simultaneous test.
+@app.route("/whoami")
+def whoami():
+    name = request.args.get("name", "")
+    if name not in ("phoneA", "phoneB", "gamze"):
+        return "<h1>Use /whoami?name=phoneA, phoneB or gamze</h1>"
+    r = Response(f"<h1>✅ This phone is now: {name}</h1>", mimetype="text/html")
+    r.set_cookie("tiscode_phone", name, max_age=365 * 24 * 3600, samesite="Lax")
+    return r
 
 # Home page: login form
 @app.route("/logout")
