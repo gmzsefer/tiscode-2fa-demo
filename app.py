@@ -294,7 +294,13 @@ def fail():
     return redirect("/choose")
 
 # Register a confirmation at time t (server clock)
-def register_ack(dev, t):
+def register_ack(dev, t, code=None):
+    if waiting["phone"].startswith("col#"):          # collision trial: record which clip won
+        if code and (code, dev) not in waiting["col_hits"]:
+            waiting["col_hits"][(code, dev)] = round(t - waiting["start"], 1)
+        return "<h1>✅ Received. Go back to your computer.</h1>"
+    if code and code != waiting["token"]:            # phone recognised a different clip
+        return "<h1>❌ This sound is not the one for the current login.</h1>"
     if waiting["phone"] == "test":        # /test page: not logged
         waiting["confirmed"] = True
         return f"<h1>✅ Test OK: infotis {waiting['token']} reached the computer.</h1>"
@@ -319,15 +325,12 @@ relay_log = []
 
 @app.route("/ack")
 def ack():
-    token = request.args.get("token")
+    code = request.args.get("code") or request.args.get("token")   # infotis link: /ack?code=18
     t, dev = time.time(), device_id()
-    relay_log.append({"t": t, "dev": dev})
+    relay_log.append({"t": t, "dev": dev, "code": code})
     del relay_log[:-50]
-    # a given token must match; without one the pending login is confirmed (demo)
-    if waiting.get("token") and (token is None or token == waiting["token"]):
-        return register_ack(dev, t)
-    if token is not None:
-        return "<h1>❌ Wrong or expired token</h1>"
+    if waiting.get("token"):
+        return register_ack(dev, t, code)
     return "<h1>✅ Confirmation sent. Go back to your computer.</h1>"
 
 # Polled by the local experiment server: confirmations after time t
@@ -389,7 +392,8 @@ setInterval(async () => {{
 # Polled by the playing page: has the phone confirmed?
 @app.route("/status")
 def status():
-    if ACK_RELAY and waiting.get("token") and (not waiting["confirmed"] or waiting["phone"].startswith("all#")):
+    if ACK_RELAY and waiting.get("token") and (not waiting["confirmed"]
+                                              or waiting["phone"].startswith(("all#", "col#"))):
         try:
             import urllib.request, json as _json
             url = f"{ACK_RELAY}/acks-since?t={waiting['start']}"
@@ -397,10 +401,122 @@ def status():
                 for a in _json.load(resp)["acks"]:
                     if a["t"] not in waiting.setdefault("relay_seen", set()):
                         waiting["relay_seen"].add(a["t"])
-                        register_ack(a["dev"] + " (relay)", a["t"])
+                        register_ack(a["dev"] + " (relay)", a["t"], a.get("code"))
         except Exception as e:
             print("relay error:", e)
     return jsonify(confirmed=waiting["confirmed"], acks=waiting.get("acks", {}))
+
+# ---------- COLLISION TEST: two TISCODEs at the same time ----------
+# The laptop plays the "legit" clip; a second device (the "other" source) runs /attacker
+# and plays a different clip at the chosen relative volume. The phone's /ack?code=...
+# tells which clip it recognised. Results go to collisions.csv.
+COLLISIONS = "collisions.csv"
+COL_FIELDS = ["time", "legit", "other", "ratio", "distance_m", "outcome",
+              "legit_s", "other_s", "devices"]
+LEGIT_VOLUME = 0.6        # browser volume of the legit clip; other = LEGIT_VOLUME * ratio
+collision = {"id": 0, "other": None, "volume": 0, "started": 0}
+
+@app.route("/collision-setup")
+def collision_setup():
+    pool = [x for x in sequence()]
+    legit = random.choice(pool)
+    other = random.choice([x for x in pool if x != legit])
+    opts = "".join(f"<option>{x}</option>" for x in pool)
+    return card("Collision test", f'''<h1>🔀 Collision test</h1>
+<p>Open <b>{inbox_url().replace("/inbox", "/attacker")}</b> on the second sound source first.</p>
+<form action="/collision">
+<label class="opt">Legit clip (laptop) <select name="legit">{opts.replace(f"<option>{legit}<", f"<option selected>{legit}<")}</select></label>
+<label class="opt">Other clip <select name="other">{opts.replace(f"<option>{other}<", f"<option selected>{other}<")}</select></label>
+<label class="opt">Other / legit volume <select name="ratio"><option>0.25</option><option>0.5</option><option selected>1</option><option>1.5</option></select></label>
+<label class="opt">Other source distance (m) <select name="dist"><option>0.3</option><option>1</option><option>2</option></select></label>
+<button>▶ Start trial</button></form>
+<style>.opt{{display:flex;justify-content:space-between;margin:8px 0;font-size:14px}}</style>''')
+
+@app.route("/collision")
+def collision_start():
+    legit, other = request.args["legit"], request.args["other"]
+    ratio, dist = float(request.args.get("ratio", 1)), request.args.get("dist", "0.3")
+    collision.update(id=collision["id"] + 1, other=other, started=time.time(),
+                     volume=round(min(1.0, LEGIT_VOLUME * ratio), 3))
+    waiting.update(confirmed=False, token=legit, dur=5, phone=f"col#{collision['id']}",
+                   start=time.time(), acks={}, attempt=1, relay_seen=set(), col_hits={},
+                   col=dict(legit=legit, other=other, ratio=ratio, dist=dist))
+    return card("Collision trial", f'''<h1>🔀 Trial {collision["id"]}</h1>
+<p>Legit <b>{legit}</b> (laptop) vs other <b>{other}</b> at {ratio}x volume, {dist} m</p>
+<audio id="a" src="/cut/{legit}/5"></audio>
+<div id="hits" style="margin:12px 0"></div>
+<a href="/collision-finish">⏹ Finish and log this trial</a>
+<script>
+setTimeout(() => {{ const a = document.getElementById("a"); a.volume = {LEGIT_VOLUME}; a.play(); }}, 1000);
+setInterval(async () => {{
+  const d = await (await fetch("/collision-status")).json();
+  document.getElementById("hits").innerHTML = d.hits.map(h => "<p>✅ " + h + "</p>").join("") || "<p>Waiting for the phone...</p>";
+}}, 1000);
+</script>''')
+
+@app.route("/collision-status")
+def collision_status():
+    status()                                         # pulls relayed confirmations
+    hits = [f"{dev.split(' | ')[0]} recognised {code} after {s}s"
+            for (code, dev), s in waiting.get("col_hits", {}).items()]
+    return jsonify(hits=hits)
+
+@app.route("/collision-finish")
+def collision_finish():
+    from flask import redirect
+    if waiting.get("phone", "").startswith("col#"):
+        status()
+        c, hits = waiting["col"], waiting["col_hits"]
+        got = {code for (code, _) in hits}
+        legit_hit, other_hit = c["legit"] in got, c["other"] in got
+        outcome = ("both" if legit_hit and other_hit else "legit" if legit_hit
+                   else "other" if other_hit else "none")
+        first = lambda clip: min([s for (code, _), s in hits.items() if code == clip], default="")
+        new = not os.path.exists(COLLISIONS)
+        with open(COLLISIONS, "a", newline="") as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow(COL_FIELDS)
+            w.writerow([datetime.datetime.now().isoformat(timespec="seconds"), c["legit"], c["other"],
+                        c["ratio"], c["dist"], outcome, first(c["legit"]), first(c["other"]),
+                        "; ".join(sorted({dev.split(" | ")[0] for (_, dev) in hits}))])
+        waiting["token"] = None
+    return redirect("/collision-setup")
+
+# Second sound source: keep this page open; it plays the "other" clip of each new trial
+@app.route("/attacker")
+def attacker():
+    return '''<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Other source</title></head>
+<body style="font-family:-apple-system,sans-serif;text-align:center;padding:20px">
+<h2>🔊 Second sound source</h2><p id="s">Tap once to enable sound, then keep this page open.</p>
+<button id="b" style="font-size:20px;padding:12px 24px">Enable sound</button>
+<audio id="a"></audio>
+<script>
+let last = null, enabled = false;
+document.getElementById("b").onclick = () => { enabled = true; document.getElementById("b").remove();
+  document.getElementById("s").textContent = "Ready. Waiting for a trial..."; };
+setInterval(async () => {
+  if (!enabled) return;
+  const d = await (await fetch("/attacker-status")).json();
+  if (d.id && d.id !== last) {
+    last = d.id;
+    const a = document.getElementById("a");
+    a.src = "/cut/" + d.other + "/5"; a.volume = d.volume;
+    setTimeout(() => a.play(), Math.max(0, d.wait_ms));
+    document.getElementById("s").textContent = "Trial " + d.id + ": playing " + d.other + " at volume " + d.volume;
+  }
+}, 250);
+</script></body></html>'''
+
+@app.route("/attacker-status")
+def attacker_status():
+    if not collision["other"]:
+        return jsonify(id=None)
+    wait_ms = int((collision["started"] + 1.0 - time.time()) * 1000)   # start with the laptop
+    return jsonify(id=collision["id"], other=collision["other"], volume=collision["volume"],
+                   wait_ms=wait_ms)
+
 
 # Shared success page (time + log-out button)
 def success_page(method, seconds):

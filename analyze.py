@@ -272,6 +272,31 @@ def main():
             p, lo, hi = wilson(k, n)
             md.append(f"| {t} | {k}/{n} | {p:.0%} | {lo:.0%}–{hi:.0%} |")
 
+    # ---- 4) Collision test: which clip wins, by volume ratio and distance ----
+    if os.path.exists("collisions.csv"):
+        col = list(csv.DictReader(open("collisions.csv")))
+        kinds = ["legit", "other", "both", "none"]
+        cells = defaultdict(lambda: defaultdict(int))
+        for r in col:
+            cells[(float(r["ratio"]), r["distance_m"])][r["outcome"]] += 1
+        md.append("\n## 4. Collision test (two clips at the same time)\n")
+        md.append("| Other/legit volume | Distance (m) | n | Legit | Other | Both | None |\n|---|---|---|---|---|---|---|")
+        for (ratio, dist), k in sorted(cells.items()):
+            n = sum(k.values())
+            md.append(f"| {ratio:g} | {dist} | {n} | " + " | ".join(f"{k[x]} ({100 * k[x] // n}%)" for x in kinds) + " |")
+        keys = sorted(cells)
+        fig, ax = plt.subplots(figsize=(max(6, 0.9 * len(keys)), 4))
+        bottom = [0] * len(keys)
+        colours = {"legit": "#2563eb", "other": "#dc2626", "both": "#a855f7", "none": "#9ca3af"}
+        for x in kinds:
+            vals = [100 * cells[k][x] / sum(cells[k].values()) for k in keys]
+            ax.bar(range(len(keys)), vals, bottom=bottom, label=x, color=colours[x])
+            bottom = [b + v for b, v in zip(bottom, vals)]
+        ax.set_xticks(range(len(keys)), [f"{r:g}x\n{d} m" for r, d in keys], fontsize=8)
+        ax.set_ylabel("Share of trials (%)"); ax.set_xlabel("Other clip volume / distance")
+        ax.set_title("Which clip the phone recognised"); ax.legend(fontsize=8)
+        fig.tight_layout(); fig.savefig(f"{OUT}/collision.png", dpi=200); plt.close(fig)
+
     open(f"{OUT}/summary.md", "w").write("\n".join(md) + "\n")
     print("\n".join(md))
     print(f"\n→ charts + summary saved in {OUT}/")
