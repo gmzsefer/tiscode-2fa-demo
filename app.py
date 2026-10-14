@@ -416,9 +416,13 @@ COL_FIELDS = ["time", "legit", "other", "ratio", "distance_m", "outcome",
 LEGIT_VOLUME = 0.6        # browser volume of the legit clip; other = LEGIT_VOLUME * ratio
 collision = {"id": 0, "other": None, "volume": 0, "started": 0}
 
+# Only these clips are used in the collision test, so only their infotis links need
+# the ?code=<name> suffix (the demo clips, which were also the most reliable ones).
+COLLISION_SOUNDS = os.environ.get("COLLISION_SOUNDS", "7,11,18,32,36").split(",")
+
 @app.route("/collision-setup")
 def collision_setup():
-    pool = [x for x in sequence()]
+    pool = [x for x in COLLISION_SOUNDS if x in all_sounds()]
     legit = random.choice(pool)
     other = random.choice([x for x in pool if x != legit])
     opts = "".join(f"<option>{x}</option>" for x in pool)
