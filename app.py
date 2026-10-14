@@ -47,6 +47,15 @@ def load_login():
 
 EMAIL, PASSWORD = load_login()
 
+# Lab account: same site, but with the experiment tools (phone selector, fixed sound
+# list, retry / not-recognised logging, result downloads). Set LAB_EMAIL / LAB_PASSWORD.
+LAB_EMAIL = os.environ.get("LAB_EMAIL", "")
+LAB_PASSWORD = os.environ.get("LAB_PASSWORD", "")
+
+def lab():
+    """Experiment tools on? Always locally (EXPERIMENT_MODE), online only for the lab account."""
+    return EXPERIMENT_MODE or session.get("lab", False)
+
 # --- E-mail OTP settings ---
 # Gmail App Password - never hard-coded in the source.
 # Put it on one line in `.smtp_password` in the project folder
@@ -192,15 +201,24 @@ def home():
 def login():
     email = request.form["email"]
     password = request.form["password"]
+    if LAB_EMAIL and email == LAB_EMAIL and password == LAB_PASSWORD:
+        session["logged_in"], session["lab"] = True, True
+        return choose_html()
     if email == EMAIL and password == PASSWORD:
-        session["logged_in"] = True
+        session["logged_in"], session["lab"] = True, False
         return choose_html()
     else:
         return "<h1>❌ Wrong email or password</h1>"
 
 def choose_html():
     h = open("choose.html", encoding="utf-8").read()
-    if not EXPERIMENT_MODE:   # demo: hide the phone selector (experiment tool)
+    if lab():
+        h = h.replace("</body>", '''<p style="text-align:center;font-size:13px">
+<a href="/results" style="color:white">📊 Results</a> ·
+<a href="/download/results.csv" style="color:white">📥 results.csv</a> ·
+<a href="/download/collisions.csv" style="color:white">📥 collisions.csv</a> ·
+<a href="/collision-setup" style="color:white">🔀 Collision test</a></p></body>''', 1)
+    if not lab():             # demo: hide the phone selector (experiment tool)
         h = h.replace('<label class="opt">Phone', '<label class="opt" style="display:none">Phone')
         h = h.replace('<label class="opt">Sound order', '<label class="opt" style="display:none">Sound order')
     return h
@@ -222,9 +240,9 @@ def tiscode():
     order = request.args.get("order", "fixed")
     if n:
         chosen = n
-    elif order == "fixed" and EXPERIMENT_MODE:      # balanced: next sound of this cell
+    elif order == "fixed" and lab():                # balanced: next sound of this cell
         chosen, _ = next_in_sequence(phone, dur)
-    elif not EXPERIMENT_MODE:                        # demo: random reliable sound
+    elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
         chosen = random.choice([x for x in all_sounds() if x not in DUPLICATES])
@@ -232,7 +250,7 @@ def tiscode():
         waiting["session"] = waiting.get("session", 0) + 1
         phone = f"all#{waiting['session']}"
     waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone,
-                   start=time.time(), acks={}, attempt=1, relay_seen=set())    # timer starts
+                   start=time.time(), acks={}, attempt=1, relay_seen=set(), started=False)  # reset by /started
     return playing_page()
 
 # Not recognised -> play the same sound again. The first try is logged as "fail (attempt 1)";
@@ -256,7 +274,7 @@ def playing_page():
                 .replace("DUR", str(dur))
                 .replace("MODE", "all" if phone.startswith("all#") else "single")
                 .replace("❌ Phone didn't react (log as failed)",
-                         "❌ Phone didn't react (log as failed)" if EXPERIMENT_MODE
+                         "❌ Phone didn't react (log as failed)" if lab()
                          else "❌ Not recognised — choose another method"))
 
 # Shorten a sound: keep the OM, cut the infocore after `dur` seconds
@@ -422,6 +440,8 @@ COLLISION_SOUNDS = os.environ.get("COLLISION_SOUNDS", "7,11,18,32,36").split(","
 
 @app.route("/collision-setup")
 def collision_setup():
+    if not lab():
+        return home()
     pool = [x for x in COLLISION_SOUNDS if x in all_sounds()]
     legit = random.choice(pool)
     other = random.choice([x for x in pool if x != legit])
@@ -443,7 +463,7 @@ def collision_start():
     collision.update(id=collision["id"] + 1, other=other, started=time.time(),
                      volume=round(min(1.0, LEGIT_VOLUME * ratio), 3))
     waiting.update(confirmed=False, token=legit, dur=5, phone=f"col#{collision['id']}",
-                   start=time.time(), acks={}, attempt=1, relay_seen=set(), col_hits={},
+                   start=time.time(), acks={}, attempt=1, relay_seen=set(), col_hits={}, started=False,
                    col=dict(legit=legit, other=other, ratio=ratio, dist=dist))
     return card("Collision trial", f'''<h1>🔀 Trial {collision["id"]}</h1>
 <p>Legit <b>{legit}</b> (laptop) vs other <b>{other}</b> at {ratio}x volume, {dist} m</p>
@@ -451,7 +471,9 @@ def collision_start():
 <div id="hits" style="margin:12px 0"></div>
 <a href="/collision-finish">⏹ Finish and log this trial</a>
 <script>
-setTimeout(() => {{ const a = document.getElementById("a"); a.volume = {LEGIT_VOLUME}; a.play(); }}, 1000);
+const a = document.getElementById("a");
+a.addEventListener("playing", () => fetch("/started", {{method: "POST"}}), {{once: true}});
+setTimeout(() => {{ a.volume = {LEGIT_VOLUME}; a.play(); }}, 1000);
 setInterval(async () => {{
   const d = await (await fetch("/collision-status")).json();
   document.getElementById("hits").innerHTML = d.hits.map(h => "<p>✅ " + h + "</p>").join("") || "<p>Waiting for the phone...</p>";
@@ -522,6 +544,22 @@ def attacker_status():
                    wait_ms=wait_ms)
 
 
+# The playing page calls this when the audio really starts, so the time spent
+# downloading the clip is not counted. Retries keep the first start (total wait).
+@app.route("/started", methods=["POST"])
+def started():
+    if waiting.get("token") and not waiting.get("started"):
+        waiting["start"], waiting["started"] = time.time(), True
+    return jsonify(ok=True)
+
+# Downloads for the lab account (the free server does not keep files across restarts)
+@app.route("/download/<name>")
+def download(name):
+    if not lab() or name not in ("results.csv", "collisions.csv") or not os.path.exists(name):
+        return "<h1>Nothing to download</h1>", 404
+    return Response(open(name).read(), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={name}"})
+
 # Shared success page (time + log-out button)
 def success_page(method, seconds):
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Success</title>
@@ -535,8 +573,8 @@ text-decoration:none;border-radius:10px;font-weight:bold}}a:hover{{opacity:.9}}<
 <body><div class="kart"><h1>✅ Welcome!</h1>
 <p class="info">Login complete via <b>{method}</b></p>
 <p class="time">⏱️ {seconds} s</p>
-{'<a href="/choose">🔁 Next trial</a>' if EXPERIMENT_MODE else ''}
-{'<p style="margin-top:10px"><a href="/logout" style="background:none;color:#888;padding:0;font-weight:normal">🚪 Log out</a></p>' if EXPERIMENT_MODE else '<a href="/logout">🚪 Log out</a>'}
+{'<a href="/choose">🔁 Next trial</a>' if lab() else ''}
+{'<p style="margin-top:10px"><a href="/logout" style="background:none;color:#888;padding:0;font-weight:normal">🚪 Log out</a></p>' if lab() else '<a href="/logout">🚪 Log out</a>'}
 </div></body></html>'''
 
 
