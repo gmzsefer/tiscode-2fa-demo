@@ -15,3 +15,5 @@ sound_labels.csv
 .claude/
 .results_key
 KILAVUZ.md
+live_backup/
+users.db

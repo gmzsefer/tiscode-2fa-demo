@@ -56,6 +56,123 @@ def lab():
     """Experiment tools on? Always locally (EXPERIMENT_MODE), online only for the lab account."""
     return EXPERIMENT_MODE or session.get("lab", False)
 
+
+# ---------- USER ACCOUNTS ----------
+# Anyone can create an account (e-mail + password) and test every method with it.
+# Accounts live in Postgres when DATABASE_URL is set (Render), otherwise in users.db.
+import sqlite3, threading
+from flask import g, redirect
+from werkzeug.security import generate_password_hash, check_password_hash
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+PH = "%s" if DATABASE_URL else "?"
+
+def db():
+    if DATABASE_URL:
+        import psycopg
+        return psycopg.connect(DATABASE_URL)
+    return sqlite3.connect("users.db")
+
+def db_run(sql, args=(), fetch=False):
+    con = db()
+    try:
+        cur = con.cursor()
+        cur.execute(sql.replace("?", PH), args)
+        rows = cur.fetchall() if fetch else None
+        con.commit()
+        return rows
+    finally:
+        con.close()
+
+try:
+    db_run("CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, pw_hash TEXT NOT NULL, "
+           "totp_secret TEXT NOT NULL, created TEXT)")
+except Exception as e:
+    print("user database not available:", e)
+
+def get_user(email):
+    try:
+        rows = db_run("SELECT email, pw_hash, totp_secret FROM users WHERE email = ?", (email,), fetch=True)
+    except Exception as e:
+        print("user lookup failed:", e)
+        return None
+    return dict(zip(("email", "pw_hash", "totp_secret"), rows[0])) if rows else None
+
+
+# ---------- PER-USER STATE ----------
+# Each logged-in user has their own pending TISCODE login, OTP code, push request and
+# TOTP timer, so several people can test at the same time. Requests are handled one at
+# a time (lock), and the module-level names below are bound to the current user.
+_lock = threading.Lock()
+STATE = {}
+
+def _fresh():
+    return dict(waiting={"confirmed": False, "token": None},
+                otp={"code": None, "start": None, "tries": 0},
+                push={"pending": False, "id": 0, "start": None, "phone": "", "approved": False},
+                totp={"start": None, "last_counter": None})
+
+def bind_user(user):
+    global waiting, otp, push, totp
+    st = STATE.setdefault(user, _fresh())
+    waiting, otp, push, totp = st["waiting"], st["otp"], st["push"], st["totp"]
+    g.user = user
+
+def user_key(user):
+    """Key in the phone's inbox link, so the phone sees only this user's codes."""
+    tag = base64.urlsafe_b64encode(user.encode()).decode().rstrip("=")
+    sig = hmac.new(app.secret_key.encode(), user.encode(), hashlib.sha256).hexdigest()[:16]
+    return f"{tag}.{sig}"
+
+def user_from_key(k):
+    try:
+        tag, sig = k.split(".")
+        user = base64.urlsafe_b64decode(tag + "=" * (-len(tag) % 4)).decode()
+    except Exception:
+        return None
+    return user if hmac.compare_digest(user_key(user).split(".")[1], sig) else None
+
+def pending_user_for_ack(code):
+    """The phone's /ack carries no login: find the user whose TISCODE login is waiting."""
+    open_ = [(st["waiting"].get("start") or 0, u) for u, st in STATE.items()
+             if st["waiting"].get("token") and (not st["waiting"].get("confirmed")
+                                                or str(st["waiting"].get("phone", "")).startswith(("all#", "col#")))]
+    if code:
+        match = [x for x in open_ if STATE[x[1]]["waiting"]["token"] == code
+                 or str(STATE[x[1]]["waiting"].get("phone", "")).startswith("col#")]
+        open_ = match or open_
+    return max(open_)[1] if open_ else None
+
+@app.before_request
+def _per_user():
+    _lock.acquire()
+    g.locked = True
+    user = session.get("user")
+    if request.args.get("k"):
+        user = user_from_key(request.args["k"]) or user
+    if request.path == "/ack":
+        user = pending_user_for_ack(request.args.get("code") or request.args.get("token")) or user
+    bind_user(user or "_anon")
+
+@app.teardown_request
+def _unlock(exc=None):
+    if g.pop("locked", False):
+        _lock.release()
+
+# Every page gets the TISCODE-style stylesheet and the brand line.
+BRAND = '<div class="brand">TIS<span>C</span>ODE<small>2FA demo</small></div>'
+
+@app.after_request
+def _style(resp):
+    if resp.mimetype == "text/html" and not resp.direct_passthrough:
+        h = resp.get_data(as_text=True)
+        tag = ('<meta name="viewport" content="width=device-width,initial-scale=1">'
+               '<link rel="stylesheet" href="/static/tiscode.css">')
+        h = h.replace("</head>", tag + "</head>", 1) if "</head>" in h else tag + h
+        h = h.replace('<div class="kart">', '<div class="kart">' + BRAND, 1)
+        resp.set_data(h)
+    return resp
+
 # --- E-mail OTP settings ---
 # Gmail App Password - never hard-coded in the source.
 # Put it on one line in `.smtp_password` in the project folder
@@ -193,31 +310,75 @@ def logout():
     return home()
 
 @app.route("/")
-def home():
-    return open("login.html", encoding="utf-8").read()
+def home(error=""):
+    h = open("login.html", encoding="utf-8").read()
+    return h.replace("<!--ERROR-->", f'<p class="error">{error}</p>' if error else "")
 
 # Login form posts here: check the password
 @app.route("/login", methods=["POST"])
 def login():
-    email = request.form["email"]
+    email = request.form["email"].strip().lower()
     password = request.form["password"]
-    if LAB_EMAIL and email == LAB_EMAIL and password == LAB_PASSWORD:
-        session["logged_in"], session["lab"] = True, True
-        return choose_html()
-    if email == EMAIL and password == PASSWORD:
-        session["logged_in"], session["lab"] = True, False
-        return choose_html()
+    if LAB_EMAIL and email == LAB_EMAIL.lower() and password == LAB_PASSWORD:
+        lab_user = True
+    elif email == EMAIL.lower() and password == PASSWORD:
+        lab_user = False
     else:
-        return "<h1>❌ Wrong email or password</h1>"
+        u = get_user(email)
+        if not (u and check_password_hash(u["pw_hash"], password)):
+            return home("Wrong e-mail or password.")
+        lab_user = False
+    session.clear()
+    session.update(logged_in=True, lab=lab_user, user=email)
+    bind_user(email)
+    return redirect("/choose")
+
+# Anyone can create a test account
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = ""
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        pw, pw2 = request.form.get("password", ""), request.form.get("password2", "")
+        if "@" not in email or "." not in email.split("@")[-1]:
+            error = "Please enter a valid e-mail address."
+        elif len(pw) < 8:
+            error = "The password must have at least 8 characters."
+        elif pw != pw2:
+            error = "The two passwords do not match."
+        elif email in (EMAIL.lower(), LAB_EMAIL.lower()) or get_user(email):
+            error = "An account with this e-mail already exists."
+        else:
+            try:
+                db_run("INSERT INTO users (email, pw_hash, totp_secret, created) VALUES (?, ?, ?, ?)",
+                       (email, generate_password_hash(pw),
+                        base64.b32encode(secrets.token_bytes(20)).decode(),
+                        datetime.datetime.now().isoformat(timespec="seconds")))
+            except Exception as e:
+                print("register failed:", e)
+                error = "Could not create the account, please try again later."
+            else:
+                session.clear()
+                session.update(logged_in=True, lab=False, user=email)
+                return redirect("/choose")
+    err = f'<p class="error">{error}</p>' if error else ""
+    return card("Create account", f'''<h1>Create an account</h1>
+<p>Use any e-mail address and a password of at least 8 characters.</p>{err}
+<form method="post" action="/register" class="form">
+<label>E-mail<input type="email" name="email" required autocomplete="email"></label>
+<label>Password<input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+<label>Repeat password<input type="password" name="password2" required minlength="8" autocomplete="new-password"></label>
+<button>Create account</button></form>
+<p><a href="/">Already have an account? Log in</a></p>''')
 
 def choose_html():
     h = open("choose.html", encoding="utf-8").read()
     if lab():
         h = h.replace("</body>", '''<p style="text-align:center;font-size:13px">
-<a href="/results" style="color:white">📊 Results</a> ·
-<a href="/download/results.csv" style="color:white">📥 results.csv</a> ·
-<a href="/download/collisions.csv" style="color:white">📥 collisions.csv</a> ·
-<a href="/collision-setup" style="color:white">🔀 Collision test</a></p></body>''', 1)
+<a href="/results">📊 Results</a> ·
+<a href="/download/results.csv">📥 results.csv</a> ·
+<a href="/download/collisions.csv">📥 collisions.csv</a> ·
+<a href="/collision-setup">🔀 Collision test</a></p></body>''', 1)
     if not lab():             # demo: hide the phone selector (experiment tool)
         h = h.replace('<label class="opt">Phone', '<label class="opt" style="display:none">Phone')
         h = h.replace('<label class="opt">Sound order', '<label class="opt" style="display:none">Sound order')
@@ -635,6 +796,9 @@ TOTP_STEP = 30
 TOTP_FILE = ".totp_secret"        # secret key (git-ignored)
 
 def totp_secret():
+    u = get_user(g.get("user", "")) if g.get("user") else None
+    if u:                              # registered user: own secret
+        return u["totp_secret"]
     if os.environ.get("TOTP_SECRET"):  # fixed on the server (no new QR scan after each deploy)
         return os.environ["TOTP_SECRET"]
     if not os.path.exists(TOTP_FILE):
@@ -668,7 +832,8 @@ a{{color:#764ba2;font-size:13px}}</style></head>
 @app.route("/totp-setup")
 def totp_setup():
     secret = totp_secret()
-    uri = (f"otpauth://totp/{quote('TISCODE Demo:' + EMAIL)}"
+    label = g.get("user") if g.get("user") not in (None, "_anon") else EMAIL
+    uri = (f"otpauth://totp/{quote('TISCODE Demo:' + label)}"
            f"?secret={secret}&issuer=TISCODE%20Demo&digits=6&period={TOTP_STEP}")
     return card("Authenticator setup", f'''<h1>📲 Setup</h1>
 <p>Open <b>Google Authenticator</b> (or Microsoft Authenticator) → <b>+</b> → <b>Scan QR code</b></p>
@@ -753,9 +918,9 @@ def email_otp():
 def inbox_url():
     # Locally: the laptop's network IP; on the server: the site's own address
     host = request.host.split(":")[0]
-    if host in ("localhost", "127.0.0.1"):
-        return f"http://{local_ip()}:5002/inbox"
-    return request.host_url + "inbox"
+    base = f"http://{local_ip()}:5002/inbox" if host in ("localhost", "127.0.0.1") \
+        else request.host_url + "inbox"
+    return f"{base}?k={user_key(g.get('user', '_anon'))}"
 
 def local_ip():
     import socket
@@ -780,9 +945,10 @@ def inbox():
 <div id="box" class="mail"><p class="muted">No new messages</p></div>
 <script>
 let last = null;
-async function answer(a) { await fetch("/push-" + a, {method: "POST"}); }
+const K = location.search;   // ?k=... ties this phone page to one user
+async function answer(a) { await fetch("/push-" + a + K, {method: "POST"}); }
 setInterval(async () => {
-  const d = await (await fetch("/inbox-status")).json();
+  const d = await (await fetch("/inbox-status" + K)).json();
   const box = document.getElementById("box");
   if (d.push) {
     if (last !== "push-" + d.push) {

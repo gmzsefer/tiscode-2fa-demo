@@ -1,0 +1,113 @@
+/* Shared style, matched to the TISCODE platform (pro.tiscode.com):
+   light grey page, white card, Inter, amber primary button, amber-brown links. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #f9fafb;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #fbbf24;
+  --primary-hover: #f59e0b;
+  --link: #b45309;
+  --ok: #15803d;
+  --error: #b91c1c;
+}
+
+html body {
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+  background: var(--bg) !important;
+  color: var(--text);
+  min-height: 100vh;
+}
+
+html .kart {
+  background: var(--card) !important;
+  border: 1px solid var(--border);
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04) !important;
+  padding: 32px !important;
+  width: 360px !important;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: .35em;
+  font-size: 14px;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 18px;
+}
+.brand span { color: var(--primary-hover); }
+.brand small {
+  display: block;
+  letter-spacing: normal;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+html .kart h1, html .kart h2 {
+  color: var(--text) !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  margin: 0 0 12px !important;
+}
+html .kart p { color: var(--muted); }
+
+html .kart input, html .kart select {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-family: inherit;
+  background: #fff;
+}
+html .kart input:focus, html .kart select:focus {
+  outline: none;
+  border-color: var(--primary-hover) !important;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, .35);
+}
+
+/* primary buttons */
+html .kart button, html .btn.tiscode {
+  background: var(--primary) !important;
+  color: var(--text) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-family: inherit;
+}
+html .kart button:hover, html .btn.tiscode:hover { background: var(--primary-hover) !important; opacity: 1; }
+
+/* other second factors: secondary (white) buttons */
+html .btn.email, html .btn.totp, html .btn.push, html .btn.secondary {
+  background: #fff !important;
+  color: var(--text) !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+html .btn.email:hover, html .btn.totp:hover, html .btn.push:hover, html .btn.secondary:hover {
+  background: #f3f4f6 !important;
+}
+
+html .kart a { color: var(--link); }
+html .kart a.btn { color: var(--text) !important; }
+html .section { color: var(--link) !important; }
+html .status { color: var(--link) !important; }
+html .wave { color: var(--primary-hover) !important; }
+html .fail { color: var(--error) !important; }
+html .retry { color: var(--link) !important; }
+
+/* forms (login, register) */
+html .form label { display: block; text-align: left; font-size: 14px; font-weight: 500; margin: 12px 0 0; color: var(--text); }
+html .form input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 0 !important;
+  padding: 10px 12px !important; font-size: 15px !important; letter-spacing: normal !important; text-align: left !important; }
+html .form button { width: 100%; padding: 11px !important; margin-top: 20px !important; font-size: 15px !important; cursor: pointer; }
+.req { color: var(--error); }
+.center { text-align: center; }
+html .kart .error { color: var(--error) !important; background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: 8px; padding: 8px 10px; font-size: 14px; text-align: left; }
