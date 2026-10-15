@@ -89,14 +89,53 @@ try:
            "totp_secret TEXT NOT NULL, created TEXT)")
 except Exception as e:
     print("user database not available:", e)
+for col in ("verified INTEGER DEFAULT 0", "verify_token TEXT"):
+    try:
+        db_run(f"ALTER TABLE users ADD COLUMN {col}")
+    except Exception:
+        pass                                      # column already there
 
 def get_user(email):
     try:
-        rows = db_run("SELECT email, pw_hash, totp_secret FROM users WHERE email = ?", (email,), fetch=True)
+        rows = db_run("SELECT email, pw_hash, totp_secret, verified, verify_token FROM users "
+                      "WHERE email = ?", (email,), fetch=True)
     except Exception as e:
         print("user lookup failed:", e)
         return None
-    return dict(zip(("email", "pw_hash", "totp_secret"), rows[0])) if rows else None
+    return dict(zip(("email", "pw_hash", "totp_secret", "verified", "verify_token"), rows[0])) if rows else None
+
+
+# ---------- SENDING E-MAIL ----------
+# Brevo HTTP API if BREVO_API_KEY is set (works on Render), else Gmail SMTP with an app
+# password, else nothing (the caller then shows the link or code on screen).
+MAIL_FROM = os.environ.get("MAIL_FROM", EMAIL)
+
+def send_mail(to, subject, text, html=None):
+    key = os.environ.get("BREVO_API_KEY")
+    try:
+        if key:
+            import urllib.request, json as _json
+            body = {"sender": {"name": "TISCODE 2FA demo", "email": MAIL_FROM},
+                    "to": [{"email": to}], "subject": subject, "textContent": text}
+            if html:
+                body["htmlContent"] = html
+            req = urllib.request.Request("https://api.brevo.com/v3/smtp/email",
+                                         data=_json.dumps(body).encode(), method="POST",
+                                         headers={"api-key": key, "content-type": "application/json",
+                                                  "accept": "application/json"})
+            urllib.request.urlopen(req, timeout=10).read()
+            return True
+        if globals().get("EMAIL_APP_PASSWORD"):
+            msg = EmailMessage()
+            msg["Subject"], msg["From"], msg["To"] = subject, MAIL_FROM, to
+            msg.set_content(text)
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as srv:
+                srv.login(MAIL_FROM, EMAIL_APP_PASSWORD)
+                srv.send_message(msg)
+            return True
+    except Exception as e:
+        print("mail error:", e)
+    return False
 
 
 # ---------- PER-USER STATE ----------
@@ -327,11 +366,74 @@ def login():
         u = get_user(email)
         if not (u and check_password_hash(u["pw_hash"], password)):
             return home("Wrong e-mail or password.")
+        if not u["verified"]:
+            return home(f'Please confirm your e-mail first. '
+                        f'<a href="/resend?e={quote(email)}">Send the link again</a>')
         lab_user = False
     session.clear()
     session.update(logged_in=True, lab=lab_user, user=email)
     bind_user(email)
     return redirect("/choose")
+
+def send_verification(email, token):
+    link = f"{request.host_url}verify?t={token}"
+    text = (f"Welcome to the TISCODE 2FA demo!\n\nConfirm your account by opening this link:\n{link}\n\n"
+            f"If you did not create this account, ignore this e-mail.")
+    html = (f'<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:auto">'
+            f'<h2 style="letter-spacing:.3em">TIS<span style="color:#f59e0b">C</span>ODE</h2>'
+            f'<p>Welcome to the TISCODE 2FA demo!</p><p>Confirm your account to start testing:</p>'
+            f'<p><a href="{link}" style="background:#fbbf24;color:#111827;padding:10px 18px;border-radius:8px;'
+            f'text-decoration:none;font-weight:600">Confirm my account</a></p>'
+            f'<p style="color:#6b7280;font-size:12px">If you did not create this account, ignore this e-mail.</p></div>')
+    return link if not send_mail(email, "Confirm your TISCODE demo account", text, html) else None
+
+def check_inbox_page(email, fallback_link=None):
+    extra = (f'<p class="error">E-mail sending is not configured on this server, so here is your '
+             f'confirmation link: <a href="{fallback_link}">confirm my account</a></p>') if fallback_link else ""
+    return card("Check your e-mail", f'''<h1>📧 Check your e-mail</h1>
+<p>We sent a confirmation link to <b>{email}</b>. Open it to activate your account.</p>{extra}
+<p class="center"><a href="/resend?e={quote(email)}">Send the link again</a> · <a href="/">Log in</a></p>''')
+
+@app.route("/resend")
+def resend():
+    email = request.args.get("e", "").strip().lower()
+    u = get_user(email)
+    if u and not u["verified"]:
+        return check_inbox_page(email, send_verification(email, u["verify_token"]))
+    return redirect("/")
+
+@app.route("/verify")
+def verify():
+    t = request.args.get("t", "")
+    try:
+        rows = db_run("SELECT email FROM users WHERE verify_token = ?", (t,), fetch=True) if t else []
+    except Exception:
+        rows = []
+    if not rows:
+        return card("Link not valid", "<h1>Link not valid</h1><p>This confirmation link is not valid "
+                    "or was already used.</p><p class='center'><a href='/'>Log in</a></p>")
+    email = rows[0][0]
+    db_run("UPDATE users SET verified = 1, verify_token = NULL WHERE email = ?", (email,))
+    session.clear()
+    session.update(logged_in=True, lab=False, user=email)
+    return redirect("/welcome")
+
+# First page after confirming: what to do next (so a new account is not empty)
+@app.route("/welcome")
+def welcome():
+    if not session.get("logged_in"):
+        return redirect("/")
+    user = session.get("user", "")
+    bind_user(user)
+    return card("Welcome", f'''<h1>Welcome! 🎉</h1>
+<p>Your account <b>{user}</b> is confirmed. You can now test four second factors.</p>
+<ol style="text-align:left;color:#374151;font-size:14px;line-height:1.6;padding-left:20px">
+<li><b>Phone inbox</b> (for OTP code and push): open this link on your phone and keep it open<br>
+<a href="{inbox_url()}" style="word-break:break-all">{inbox_url()}</a></li>
+<li><b>Authenticator app</b>: <a href="/totp-setup">scan your QR code</a> with Google or Microsoft Authenticator.</li>
+<li><b>TISCODE</b>: needs a phone with the TISCODE app that knows the demo clips.</li>
+</ol>
+<a class="btn tiscode" href="/choose" style="display:block;padding:11px;border-radius:8px;text-decoration:none;font-weight:600">Start testing</a>''')
 
 # Anyone can create a test account
 @app.route("/register", methods=["GET", "POST"])
@@ -349,18 +451,18 @@ def register():
         elif email in (EMAIL.lower(), LAB_EMAIL.lower()) or get_user(email):
             error = "An account with this e-mail already exists."
         else:
+            token = secrets.token_urlsafe(24)
             try:
-                db_run("INSERT INTO users (email, pw_hash, totp_secret, created) VALUES (?, ?, ?, ?)",
+                db_run("INSERT INTO users (email, pw_hash, totp_secret, created, verified, verify_token) "
+                       "VALUES (?, ?, ?, ?, 0, ?)",
                        (email, generate_password_hash(pw),
                         base64.b32encode(secrets.token_bytes(20)).decode(),
-                        datetime.datetime.now().isoformat(timespec="seconds")))
+                        datetime.datetime.now().isoformat(timespec="seconds"), token))
             except Exception as e:
                 print("register failed:", e)
                 error = "Could not create the account, please try again later."
             else:
-                session.clear()
-                session.update(logged_in=True, lab=False, user=email)
-                return redirect("/choose")
+                return check_inbox_page(email, send_verification(email, token))
     err = f'<p class="error">{error}</p>' if error else ""
     return card("Create account", f'''<h1>Create an account</h1>
 <p>Use any e-mail address and a password of at least 8 characters.</p>{err}
@@ -886,25 +988,14 @@ def email_otp():
     otp.update(code=code, start=time.time(), tries=0, sent=False,
                phone=request.args.get("phone", ""))  # timer starts
 
-    if EMAIL_APP_PASSWORD:              # send a real e-mail if an app password is set
-        try:
-            msg = EmailMessage()
-            msg["Subject"] = f"Your login code: {code}"
-            msg["From"] = EMAIL
-            msg["To"] = EMAIL
-            msg.set_content(f"Your 2FA verification code is: {code}\n\n"
-                            f"It expires in {OTP_TTL // 60} minutes. "
-                            f"If you did not try to log in, ignore this email.")
-            ctx = ssl.create_default_context()
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
-                s.login(EMAIL, EMAIL_APP_PASSWORD)
-                s.send_message(msg)
-            otp["sent"] = True
-        except Exception as e:
-            print("email error:", e)
+    to = g.get("user") if get_user(g.get("user", "")) else None   # registered users get real e-mail
+    if to and send_mail(to, f"Your login code: {code}",
+                        f"Your TISCODE demo login code is: {code}\n\nIt expires in {OTP_TTL // 60} minutes. "
+                        f"If you did not try to log in, ignore this e-mail."):
+        otp["sent"] = True
 
     if otp["sent"]:
-        note = f"<p style='color:#16a34a'>📧 Code sent to <b>{EMAIL}</b>.</p>"
+        note = f"<p style='color:#16a34a'>📧 Code sent to <b>{to}</b>.</p>"
     else:
         note = (f"<p style='color:#16a34a'>📱 Code sent to your phone inbox.</p>"
                 f"<p style='color:#888;font-size:12px'>Phone: open "
