@@ -203,6 +203,9 @@ BRAND = '<div class="brand">TIS<span>C</span>ODE<small>2FA demo</small></div>'
 
 @app.after_request
 def _style(resp):
+    # ask Chrome for the device model on this origin (needed to tell lab phones apart)
+    resp.headers["Accept-CH"] = "Sec-CH-UA-Model"
+    resp.headers["Critical-CH"] = "Sec-CH-UA-Model"
     if resp.mimetype == "text/html" and not resp.direct_passthrough:
         h = resp.get_data(as_text=True)
         tag = ('<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -324,11 +327,20 @@ def log_result(method, sound, duration, phone, result, elapsed, ack_device="", a
                     method, sound, duration, phone, result, elapsed, ack_device, attempt])
 
 # Identify the confirming phone: IP + device info from the browser user agent
+# Chrome hides the phone model in the User-Agent ("Android 10; K"). We ask for the
+# real model with a client hint (Sec-CH-UA-Model) and map known lab phones to names,
+# so two phones on the same network are told apart without any setup.
+PHONE_MODELS = {"moto": "phoneB", "stk-": "phoneA", "honor": "phoneA", "jsn-": "phoneA"}
+
 def device_id():
     ua = request.headers.get("User-Agent", "")
     model = ua.split("(", 1)[1].split(")", 1)[0] if "(" in ua else ua[:60]
+    hint = request.headers.get("Sec-CH-UA-Model", "").strip('"')
     label = request.cookies.get("tiscode_phone", "")
-    return f"{label + ' | ' if label else ''}{request.remote_addr} | {model}"
+    if not label and hint:
+        label = next((name for key, name in PHONE_MODELS.items() if key in hint.lower()), "")
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    return f"{label + ' | ' if label else ''}{ip} | {hint or model}"
 
 # Name a phone once (open on that phone, in the browser the TISCODE app uses):
 # /whoami?name=phoneA. Its later confirmations carry that name, so phones on the
