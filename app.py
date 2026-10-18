@@ -272,6 +272,19 @@ def sequence():
 
 ALL_MODE_PHONES = ["phoneA", "phoneB"]   # phones placed side by side in the simultaneous test
 
+def next_session_id():
+    """Simultaneous-test session ids continue from the highest one in results.csv,
+    so ids stay unique across server restarts."""
+    top = 0
+    if os.path.exists(RESULTS):
+        for r in csv.DictReader(open(RESULTS)):
+            if r["phone"].startswith("all#"):
+                try:
+                    top = max(top, int(r["phone"][4:]))
+                except ValueError:
+                    pass
+    return top + 1
+
 def next_in_sequence(phone, dur):
     """Next sound for this phone x length cell, counted from results.csv (survives restarts)."""
     done = 0
@@ -522,8 +535,7 @@ def tiscode():
     else:                                            # fully random (like real 2FA)
         chosen = random.choice([x for x in all_sounds() if x not in DUPLICATES])
     if phone == "all":                   # simultaneous test: each play = new session id
-        waiting["session"] = waiting.get("session", 0) + 1
-        phone = f"all#{waiting['session']}"
+        phone = f"all#{next_session_id()}"
     waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone,
                    start=time.time(), acks={}, attempt=1, relay_seen=set(), started=False)  # reset by /started
     return playing_page()
