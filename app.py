@@ -250,7 +250,7 @@ SEQ_SEED = 42
 # here, so adding new files never changes them. Block 3 = every other sound.
 BLOCK1 = ["9", "14-25", "10", "20", "19", "18", "14-26", "14", "13", "36"]
 BLOCK2 = ["11", "2", "4-22", "5", "14-30", "32", "21", "4", "12-24", "7"]
-EXP_START = "2026-10-07T04:00"     # start of the real trials (earlier rows = setup tests)
+EXP_START = "2026-10-18T18:26"     # start of the real trials (earlier rows = setup tests)
 
 DUPLICATES = {"20_2"}    # 20_2.wav is byte-identical to 20.wav (same md5) -> excluded
 
