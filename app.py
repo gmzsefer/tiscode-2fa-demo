@@ -529,7 +529,11 @@ def tiscode():
     if n:
         chosen = n
     elif order == "fixed" and lab():                # balanced: next sound of this cell
-        chosen, _ = next_in_sequence(phone, dur)
+        chosen, done = next_in_sequence(phone, dur)
+        if phone == "all" and done >= len(sequence()):
+            return card("Length complete", f"<h1>✅ {dur} s is complete</h1><p>All {len(sequence())} "
+                        f"clips were tested on both phones at {dur} s. Choose another length.</p>"
+                        f"<p class='center'><a href='/choose'>Back</a></p>")
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
