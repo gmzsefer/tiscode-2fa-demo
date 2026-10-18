@@ -852,6 +852,20 @@ def download(name):
     return Response(open(name).read(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={name}"})
 
+# Remove invalid simultaneous sessions (e.g. a phone was not ready) without a redeploy:
+# /admin/drop?key=RESULTS_KEY&since=2026-10-18T17:50 drops all# rows from that time on.
+@app.route("/admin/drop")
+def admin_drop():
+    key = os.environ.get("RESULTS_KEY")
+    since = request.args.get("since", "")
+    if not key or request.args.get("key") != key or len(since) < 10 or not os.path.exists(RESULTS):
+        return "<h1>Not allowed</h1>", 403
+    rows = list(csv.reader(open(RESULTS)))
+    keep = [rows[0]] + [r for r in rows[1:] if not (r[4].startswith("all#") and r[0] >= since)]
+    with open(RESULTS, "w", newline="") as f:
+        csv.writer(f).writerows(keep)
+    return jsonify(dropped=len(rows) - len(keep))
+
 # Shared success page (time + log-out button)
 def success_page(method, seconds):
     return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Success</title>
