@@ -250,7 +250,7 @@ SEQ_SEED = 42
 # here, so adding new files never changes them. Block 3 = every other sound.
 BLOCK1 = ["9", "14-25", "10", "20", "19", "18", "14-26", "14", "13", "36"]
 BLOCK2 = ["11", "2", "4-22", "5", "14-30", "32", "21", "4", "12-24", "7"]
-EXP_START = "2026-10-18T18:26"     # start of the real trials (earlier rows = setup tests)
+EXP_START = "2026-10-19T23:49"     # start of the real trials (earlier rows = setup tests)
 
 DUPLICATES = {"20_2"}    # 20_2.wav is byte-identical to 20.wav (same md5) -> excluded
 
@@ -324,6 +324,34 @@ def next_in_sequence(phone, dur):
 RESULTS = "results.csv"
 FIELDS = ["time", "method", "sound", "duration_s", "phone", "result", "elapsed_s", "ack_device", "attempt"]
 
+# On the server the free instance loses its files on every restart, so trials are also
+# stored in the database (DATABASE_URL). At start-up results.csv is rebuilt from the
+# database, so everything that reads the CSV keeps working and nothing is lost.
+def _results_db_sync():
+    if not DATABASE_URL:
+        return
+    try:
+        db_run("CREATE TABLE IF NOT EXISTS results (id SERIAL PRIMARY KEY, " +
+               ", ".join(f"{c} TEXT" for c in FIELDS) + ")")
+        n = db_run("SELECT COUNT(*) FROM results", fetch=True)[0][0]
+        if n == 0 and os.path.exists(RESULTS):            # first start: seed from the CSV in the repo
+            rows = [r + [""] * (len(FIELDS) - len(r)) for r in list(csv.reader(open(RESULTS)))[1:]]
+            con = db()
+            try:
+                cur = con.cursor()
+                cur.executemany(f"INSERT INTO results ({', '.join(FIELDS)}) VALUES "
+                                f"({', '.join(['%s'] * len(FIELDS))})", [r[:len(FIELDS)] for r in rows])
+                con.commit()
+            finally:
+                con.close()
+        rows = db_run(f"SELECT {', '.join(FIELDS)} FROM results ORDER BY id", fetch=True)
+        with open(RESULTS, "w", newline="") as f:
+            csv.writer(f).writerows([FIELDS] + [list(r) for r in rows])
+    except Exception as e:
+        print("results database not available:", e)
+
+_results_db_sync()
+
 def log_result(method, sound, duration, phone, result, elapsed, ack_device="", attempt=""):
     # Upgrade the header if an older file lacks new columns (old rows stay empty)
     if os.path.exists(RESULTS):
@@ -336,8 +364,15 @@ def log_result(method, sound, duration, phone, result, elapsed, ack_device="", a
         w = csv.writer(f)
         if new:
             w.writerow(FIELDS)
-        w.writerow([datetime.datetime.now().isoformat(timespec="seconds"),
-                    method, sound, duration, phone, result, elapsed, ack_device, attempt])
+        row = [datetime.datetime.now().isoformat(timespec="seconds"),
+               method, sound, duration, phone, result, elapsed, ack_device, attempt]
+        w.writerow(row)
+    if DATABASE_URL:
+        try:
+            db_run(f"INSERT INTO results ({', '.join(FIELDS)}) VALUES ({', '.join(['?'] * len(FIELDS))})",
+                   [str(x) for x in row])
+        except Exception as e:
+            print("result not stored in database:", e)
 
 # Identify the confirming phone: IP + device info from the browser user agent
 # Chrome hides the phone model in the User-Agent ("Android 10; K"). We ask for the
@@ -864,6 +899,8 @@ def admin_drop():
     keep = [rows[0]] + [r for r in rows[1:] if not (r[4].startswith("all#") and r[0] >= since)]
     with open(RESULTS, "w", newline="") as f:
         csv.writer(f).writerows(keep)
+    if DATABASE_URL:
+        db_run("DELETE FROM results WHERE phone LIKE ? AND time >= ?", ("all#%", since))
     return jsonify(dropped=len(rows) - len(keep))
 
 # Shared success page (time + log-out button)
