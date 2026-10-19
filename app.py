@@ -887,6 +887,20 @@ def download(name):
     return Response(open(name).read(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={name}"})
 
+# Health check for the operator: is the database connected, how many trials are stored?
+@app.route("/admin/health")
+def admin_health():
+    key = os.environ.get("RESULTS_KEY")
+    if not key or request.args.get("key") != key:
+        return "<h1>Not allowed</h1>", 403
+    info = {"database": bool(DATABASE_URL), "exp_start": EXP_START}
+    try:
+        info["db_results"] = db_run("SELECT COUNT(*) FROM results", fetch=True)[0][0] if DATABASE_URL else None
+        info["db_users"] = db_run("SELECT COUNT(*) FROM users", fetch=True)[0][0]
+    except Exception as e:
+        info["error"] = str(e)[:200]
+    return jsonify(info)
+
 # Remove invalid simultaneous sessions (e.g. a phone was not ready) without a redeploy:
 # /admin/drop?key=RESULTS_KEY&since=2026-10-18T17:50 drops all# rows from that time on.
 @app.route("/admin/drop")
