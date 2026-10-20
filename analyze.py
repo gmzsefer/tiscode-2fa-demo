@@ -73,16 +73,23 @@ def main():
     for r in rows:
         if r["method"] == "TISCODE" and r["phone"].startswith("all#"):
             x = sess[r["phone"]]
-            x["sound"], x["dur"] = r["sound"], r["duration_s"]
+            x["sound"], x["dur"], x["day"] = r["sound"], r["duration_s"], r["time"][:10]
             if r["result"] == "success":
                 x["hit"].add(r["ack_device"].split(" | ")[0])
             if r["result"] == "session_end":
                 x["ended"] = True
+    # Which phones took part on each day: those that confirmed at least once that day
+    present = defaultdict(set)
+    for r in rows:
+        if r["method"] == "TISCODE" and r["phone"].startswith("all#") and r["result"] == "success":
+            lab = r["ack_device"].split(" | ")[0]
+            if lab in ALL_MODE_PHONES:
+                present[r["time"][:10]].add(lab)
     synth = []
     for x in sess.values():
         if not x["ended"]:
             continue
-        for ph in ALL_MODE_PHONES:
+        for ph in sorted(present.get(x.get("day", ""), set())):
             if (ph, x["dur"], x["sound"]) not in have:
                 synth.append({"phone": ph, "duration_s": x["dur"], "sound": x["sound"],
                               "result": "success" if ph in x["hit"] else "fail"})
