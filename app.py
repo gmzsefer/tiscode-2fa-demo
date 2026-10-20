@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, Response, session
-import random, os, time, smtplib, ssl, io, wave, csv, datetime, secrets
+import random, os, time, smtplib, ssl, io, wave, csv, datetime, secrets, json
 import hmac, hashlib, base64, struct
 from urllib.parse import quote
 from email.message import EmailMessage
@@ -270,8 +270,8 @@ def sequence():
     third = [x for x in all_sounds() if x not in BLOCK1 + BLOCK2 and x not in DUPLICATES]
     return BLOCK1 + BLOCK2 + third
 
-# phones placed side by side in the simultaneous test (set ALL_MODE_PHONES=phoneA,gamze to change)
-ALL_MODE_PHONES = os.environ.get("ALL_MODE_PHONES", "phoneA,phoneB").split(",")
+# phones placed side by side in the simultaneous test (set ALL_MODE_PHONES to change)
+ALL_MODE_PHONES = os.environ.get("ALL_MODE_PHONES", "phoneA,phoneB,gamze").split(",")
 
 def next_session_id():
     """Simultaneous-test session ids continue from the highest one in results.csv,
@@ -602,6 +602,7 @@ def playing_page():
                 .replace("SOUND_NAME", chosen)
                 .replace("DUR", str(dur))
                 .replace("MODE", "all" if phone.startswith("all#") else "single")
+                .replace("PHONE_NAMES", json.dumps(ALL_MODE_PHONES))
                 .replace("❌ Phone didn't react (log as failed)",
                          "❌ Phone didn't react (log as failed)" if lab()
                          else "❌ Not recognised — choose another method"))
@@ -633,6 +634,9 @@ def fail():
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "session_end",
                    round(time.time() - waiting["start"], 1), f"{len(waiting['acks'])} phone(s)")
         waiting["token"] = None
+        if request.args.get("next"):     # auto mode: straight to the next sound of this length
+            from flask import redirect
+            return redirect(f"/tiscode?phone=all&order=fixed&dur={waiting['dur']}")
     elif waiting.get("token") and not waiting["confirmed"]:
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "fail",
                    round(time.time() - waiting["start"], 1), "", waiting.get("attempt", 1))
