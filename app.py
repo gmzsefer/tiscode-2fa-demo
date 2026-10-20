@@ -270,6 +270,14 @@ def sequence():
     third = [x for x in all_sounds() if x not in BLOCK1 + BLOCK2 and x not in DUPLICATES]
     return BLOCK1 + BLOCK2 + third
 
+# Shorter lengths are tested on the 20 clips of blocks 1 and 2 only (all 50 at 5 s),
+# so every length uses the same clips. SHORT_SUBSET=0 tests all 50 at every length.
+SHORT_SUBSET = int(os.environ.get("SHORT_SUBSET", "20"))
+
+def cell_sounds(dur):
+    seq = sequence()
+    return seq[:SHORT_SUBSET] if SHORT_SUBSET and dur < INFOCORE_MAX else seq
+
 # phones placed side by side in the simultaneous test (set ALL_MODE_PHONES to change)
 ALL_MODE_PHONES = os.environ.get("ALL_MODE_PHONES", "phoneA,phoneB,gamze").split(",")
 
@@ -300,6 +308,7 @@ def next_in_sequence(phone, dur):
                 done += 1
     seq = sequence()
     if phone == "all":
+        seq = cell_sounds(dur)
         played, per_phone = set(), {p: set() for p in ALL_MODE_PHONES}
         if os.path.exists(RESULTS):
             for r in csv.DictReader(open(RESULTS)):
@@ -568,8 +577,8 @@ def tiscode():
         chosen = n
     elif order == "fixed" and lab():                # balanced: next sound of this cell
         chosen, done = next_in_sequence(phone, dur)
-        if phone == "all" and done >= len(sequence()):
-            return card("Length complete", f"<h1>✅ {dur} s is complete</h1><p>All {len(sequence())} "
+        if phone == "all" and done >= len(cell_sounds(dur)):
+            return card("Length complete", f"<h1>✅ {dur} s is complete</h1><p>All {len(cell_sounds(dur))} "
                         f"clips were tested on both phones at {dur} s. Choose another length.</p>"
                         f"<p class='center'><a href='/choose'>Back</a></p>")
     elif not lab():                                  # demo: random reliable sound
