@@ -270,7 +270,8 @@ def sequence():
     third = [x for x in all_sounds() if x not in BLOCK1 + BLOCK2 and x not in DUPLICATES]
     return BLOCK1 + BLOCK2 + third
 
-ALL_MODE_PHONES = ["phoneA", "phoneB"]   # phones placed side by side in the simultaneous test
+# phones placed side by side in the simultaneous test (set ALL_MODE_PHONES=phoneA,gamze to change)
+ALL_MODE_PHONES = os.environ.get("ALL_MODE_PHONES", "phoneA,phoneB").split(",")
 
 def next_session_id():
     """Simultaneous-test session ids continue from the highest one in results.csv,
@@ -387,6 +388,8 @@ def device_id():
     label = request.cookies.get("tiscode_phone", "")
     if not label and hint:
         label = next((name for key, name in PHONE_MODELS.items() if key in hint.lower()), "")
+    if not label and "iphone" in ua.lower():          # Safari sends no model hint, but says "iPhone"
+        label = "gamze"
     ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
     return f"{label + ' | ' if label else ''}{ip} | {hint or model}"
 

@@ -19,7 +19,7 @@ from scipy.stats import mannwhitneyu
 
 OUT = "analysis"
 PHONES = {"phoneA": "Lab phone A", "phoneB": "Lab phone B", "gamze": "My phone"}
-ALL_MODE_PHONES = ["phoneA", "phoneB"]   # phones used side by side in the simultaneous test
+ALL_MODE_PHONES = ["phoneA", "phoneB", "gamze"]   # phones that can appear in simultaneous tests
 OM_OFFSET = 4.0           # leading silence + OM + gap before the infocore (s)
 
 
