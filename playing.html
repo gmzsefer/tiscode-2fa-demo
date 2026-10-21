@@ -64,7 +64,7 @@
       const b = document.getElementById("failbtn");
       b.textContent = "⏹ Finish — next sound (phones that didn't react = failed)";
       document.getElementById("retrybtn").style.display = "none";
-      // Auto mode: go on by itself when every phone confirmed, or 25 s after the sound started
+      // Auto mode: go on by itself when every phone confirmed, or 35 s after the sound started
       let auto = true, left = null, done = false;
       const next = () => { if (auto && !done) { done = true; location.href = "/fail?next=1"; } };
       const info = document.createElement("p");
@@ -72,7 +72,7 @@
       stop.href = "#"; stop.className = "retry"; stop.textContent = "⏸ Stop auto mode";
       stop.onclick = e => { e.preventDefault(); auto = false; info.textContent = "Auto mode off"; stop.remove(); };
       b.after(info, stop);
-      document.getElementById("clip").addEventListener("playing", () => { left = 25; }, {once: true});
+      document.getElementById("clip").addEventListener("playing", () => { left = 35; }, {once: true});
       setInterval(() => {
         if (!auto) return;
         if (PHONE_NAMES.every(n => names.includes(n))) { setTimeout(next, 1500); return; }
