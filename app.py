@@ -578,9 +578,16 @@ def tiscode():
     elif order == "fixed" and lab():                # balanced: next sound of this cell
         chosen, done = next_in_sequence(phone, dur)
         if phone == "all" and done >= len(cell_sounds(dur)):
+            nxt = ""
+            if dur > 1:   # series: go on with the next shorter length after a short pause
+                url = f"/tiscode?phone=all&order=fixed&dur={dur - 1}"
+                nxt = (f"<p>Starting <b>{dur - 1} s</b> in <span id='c'>15</span> s…</p>"
+                       f"<p class='center'><a href='{url}'>Start now</a> · <a href='/choose'>Stop</a></p>"
+                       f"<script>let c=15;setInterval(()=>{{if(--c<=0)location.href='{url}';"
+                       f"document.getElementById('c').textContent=c}},1000)</script>")
             return card("Length complete", f"<h1>✅ {dur} s is complete</h1><p>All {len(cell_sounds(dur))} "
-                        f"clips were tested on both phones at {dur} s. Choose another length.</p>"
-                        f"<p class='center'><a href='/choose'>Back</a></p>")
+                        f"clips were tested on all phones at {dur} s.</p>"
+                        + (nxt or "<p class='center'><a href='/choose'>Back</a></p>"))
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
