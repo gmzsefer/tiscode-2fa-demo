@@ -145,6 +145,52 @@ def main():
     ax.grid(alpha=.3); ax.legend()
     fig.tight_layout(); fig.savefig(f"{OUT}/recognition_vs_length.png", dpi=200); plt.close(fig)
 
+    # Response time per phone x length: successful first attempts, timer starts when the sound plays.
+    # Confirmations later than MAX_RESPONSE are late taps, not recognitions, and are left out.
+    MAX_RESPONSE = 60
+    rt = defaultdict(list)
+    for r in rows:
+        if r["method"] != "TISCODE" or r["result"] != "success" or not r["elapsed_s"]:
+            continue
+        ph = r["ack_device"].split(" | ")[0] if r["phone"].startswith("all#") else r["phone"]
+        if ph in PHONES and attempt(r) == 1 and float(r["elapsed_s"]) <= MAX_RESPONSE:
+            rt[(ph, int(r["duration_s"]))].append(float(r["elapsed_s"]))
+    md.append("\n## 1c. Response time by length (successful first attempts)\n")
+    md.append("| Phone | Infocore (s) | n | Mean (s) | Median (s) | SD |\n|---|---|---|---|---|---|")
+    for (ph, d), xs in sorted(rt.items()):
+        s = stats(xs)
+        md.append(f"| {PHONES[ph]} | {d} | {s['n']} | {s['mean']:.1f} | {s['median']:.1f} | {s['sd']:.1f} |")
+
+    # Chart: response time vs length (mean ± SD)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    for ph in PHONES:
+        ds = sorted(d for (p, d) in rt if p == ph)
+        if not ds:
+            continue
+        ss = [stats(rt[(ph, d)]) for d in ds]
+        ax.errorbar(ds, [s["mean"] for s in ss], yerr=[s["sd"] for s in ss],
+                    marker="o", capsize=4, label=PHONES[ph])
+    ax.set_xlabel("Infocore length (s)"); ax.set_ylabel("Response time (s)")
+    ax.set_title("TISCODE response time vs. length (mean ± SD)")
+    ax.grid(alpha=.3); ax.legend()
+    fig.tight_layout(); fig.savefig(f"{OUT}/response_time_vs_length.png", dpi=200); plt.close(fig)
+
+    # Chart: accuracy vs response time, one point per length (best corner: top left)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    for ph in PHONES:
+        ds = sorted(d for (p, d) in cell if p == ph and (p, d) in rt)
+        if not ds:
+            continue
+        xs = [stats(rt[(ph, d)])["mean"] for d in ds]
+        ys = [wilson(*cell[(ph, d)])[0] * 100 for d in ds]
+        ax.plot(xs, ys, marker="o", label=PHONES[ph])
+        for x, y, d in zip(xs, ys, ds):
+            ax.annotate(f"{d} s", (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
+    ax.set_xlabel("Mean response time (s)"); ax.set_ylabel("Recognition rate (%)")
+    ax.set_ylim(0, 105); ax.set_title("Accuracy vs. response time (one point per length)")
+    ax.grid(alpha=.3); ax.legend()
+    fig.tight_layout(); fig.savefig(f"{OUT}/accuracy_vs_response_time.png", dpi=200); plt.close(fig)
+
     # ---- 2) Authentication time: method comparison ----
     times = defaultdict(list)
     for r in rows:
