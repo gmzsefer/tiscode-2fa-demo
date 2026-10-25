@@ -335,6 +335,8 @@ def next_in_sequence(phone, dur):
         both = set.intersection(*per_phone.values())
         todo = [x for x in seq if x not in played and x not in both]
         random.Random(f"all-{dur}").shuffle(todo)
+        last = os.environ.get("PLAY_LAST", "").split(",")    # clips to keep for the end
+        todo = [x for x in todo if x not in last] + [x for x in todo if x in last]
         return (todo[0] if todo else seq[0]), len(seq) - len(todo)
     first, second, third = BLOCK1[:], BLOCK2[:], seq[len(BLOCK1) + len(BLOCK2):]
     random.Random(f"{phone}-{dur}").shuffle(first)       # block 1: same order as before
@@ -963,12 +965,17 @@ def admin_drop():
     since = request.args.get("since", "")
     if not key or request.args.get("key") != key or len(since) < 10 or not os.path.exists(RESULTS):
         return "<h1>Not allowed</h1>", 403
+    sess = request.args.get("session", "")     # optional: only this session, e.g. all#216
     rows = list(csv.reader(open(RESULTS)))
-    keep = [rows[0]] + [r for r in rows[1:] if not (r[4].startswith("all#") and r[0] >= since)]
+    gone = lambda r: r[0] >= since and (r[4] == sess if sess else r[4].startswith("all#"))
+    keep = [rows[0]] + [r for r in rows[1:] if not gone(r)]
     with open(RESULTS, "w", newline="") as f:
         csv.writer(f).writerows(keep)
     if DATABASE_URL:
-        db_run("DELETE FROM results WHERE phone LIKE ? AND time >= ?", ("all#%", since))
+        if sess:
+            db_run("DELETE FROM results WHERE phone = ? AND time >= ?", (sess, since))
+        else:
+            db_run("DELETE FROM results WHERE phone LIKE ? AND time >= ?", ("all#%", since))
     return jsonify(dropped=len(rows) - len(keep))
 
 # Shared success page (time + log-out button)
