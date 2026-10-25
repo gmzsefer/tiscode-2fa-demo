@@ -274,6 +274,19 @@ def sequence():
 # so every length uses the same clips. SHORT_SUBSET=0 tests all 50 at every length.
 SHORT_SUBSET = int(os.environ.get("SHORT_SUBSET", "20"))
 
+# Repeat round: the first REPEAT_N clips of the fixed list played again at 5, 4 and 3 s
+# (3 phones together); trials from REPEAT_START on belong to this round.
+REPEAT_START = os.environ.get("REPEAT_START", "2026-10-25T00:00")
+REPEAT_N = int(os.environ.get("REPEAT_N", "10"))
+
+def repeat_todo(dur):
+    played = set()
+    if os.path.exists(RESULTS):
+        for r in csv.DictReader(open(RESULTS)):
+            if r["time"] >= REPEAT_START and r["phone"].startswith("all#") and r["duration_s"] == str(dur):
+                played.add(r["sound"])
+    return [x for x in sequence()[:REPEAT_N] if x not in played]
+
 def cell_sounds(dur):
     seq = sequence()
     return seq[:SHORT_SUBSET] if SHORT_SUBSET and dur < INFOCORE_MAX else seq
@@ -588,13 +601,27 @@ def tiscode():
             return card("Length complete", f"<h1>✅ {dur} s is complete</h1><p>All {len(cell_sounds(dur))} "
                         f"clips were tested on all phones at {dur} s.</p>"
                         + (nxt or "<p class='center'><a href='/choose'>Back</a></p>"))
+    elif order == "repeat" and lab() and phone == "all":
+        todo = repeat_todo(dur)
+        if not todo:
+            nxt = ""
+            if dur > 3:   # repeat round covers 5, 4 and 3 s
+                url = f"/tiscode?phone=all&order=repeat&dur={dur - 1}"
+                nxt = (f"<p>Starting <b>{dur - 1} s</b> in <span id='c'>15</span> s…</p>"
+                       f"<p class='center'><a href='{url}'>Start now</a> · <a href='/choose'>Stop</a></p>"
+                       f"<script>let c=15;setInterval(()=>{{if(--c<=0)location.href='{url}';"
+                       f"document.getElementById('c').textContent=c}},1000)</script>")
+            return card("Repeat complete", f"<h1>✅ Repeat round: {dur} s is complete</h1>"
+                        f"<p>{REPEAT_N} clips were played again at {dur} s.</p>"
+                        + (nxt or "<p class='center'><a href='/choose'>Back</a></p>"))
+        chosen = todo[0]
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
         chosen = random.choice([x for x in all_sounds() if x not in DUPLICATES])
     if phone == "all":                   # simultaneous test: each play = new session id
         phone = f"all#{next_session_id()}"
-    waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone,
+    waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone, order=order,
                    start=time.time(), acks={}, attempt=1, relay_seen=set(), started=False)  # reset by /started
     return playing_page()
 
@@ -652,7 +679,7 @@ def fail():
         waiting["token"] = None
         if request.args.get("next"):     # auto mode: straight to the next sound of this length
             from flask import redirect
-            return redirect(f"/tiscode?phone=all&order=fixed&dur={waiting['dur']}")
+            return redirect(f"/tiscode?phone=all&order={waiting.get('order', 'fixed')}&dur={waiting['dur']}")
     elif waiting.get("token") and not waiting["confirmed"]:
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "fail",
                    round(time.time() - waiting["start"], 1), "", waiting.get("attempt", 1))
