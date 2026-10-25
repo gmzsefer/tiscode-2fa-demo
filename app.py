@@ -699,6 +699,10 @@ def register_ack(dev, t, code=None):
         waiting["confirmed"] = True
         return f"<h1>✅ Test OK: infotis {waiting['token']} reached the computer.</h1>"
     if waiting["phone"].startswith("all#"):
+        # A confirmation before the clip has even finished (1 s silence + OM + gap = 4 s, then
+        # the infocore) cannot be for this clip: it is a late tap from the previous one.
+        if t - waiting["start"] < 4 + waiting["dur"]:
+            return "<h1>⏭ Too late for the previous sound, not counted.</h1>"
         if dev not in waiting["acks"]:     # each phone counted once
             waiting["acks"][dev] = round(t - waiting["start"], 1)
             log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
