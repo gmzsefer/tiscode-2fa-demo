@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, Response, session
+from collections import defaultdict
 import random, os, time, smtplib, ssl, io, wave, csv, datetime, secrets, json
 import hmac, hashlib, base64, struct
 from urllib.parse import quote
@@ -274,18 +275,28 @@ def sequence():
 # so every length uses the same clips. SHORT_SUBSET=0 tests all 50 at every length.
 SHORT_SUBSET = int(os.environ.get("SHORT_SUBSET", "20"))
 
-# Repeat round: the first REPEAT_N clips of the fixed list played again at 5, 4 and 3 s
-# (3 phones together); trials from REPEAT_START on belong to this round.
-REPEAT_START = os.environ.get("REPEAT_START", "2026-10-25T00:00")
-REPEAT_N = int(os.environ.get("REPEAT_N", "10"))
+# Repeated rounds: every clip is played ROUNDS times at each length in ROUND_LENGTHS
+# (3 phones together). Rounds are filled one at a time across the lengths, so stopping
+# early still leaves every length with the same number of complete rounds.
+ROUNDS = int(os.environ.get("ROUNDS", "10"))
+ROUND_LENGTHS = [int(x) for x in os.environ.get("ROUND_LENGTHS", "5,4,3,2").split(",")]
 
-def repeat_todo(dur):
-    played = set()
+def next_round_trial():
+    """(clip, length, round number) of the next trial, or None when all rounds are done."""
+    count = defaultdict(int)
     if os.path.exists(RESULTS):
         for r in csv.DictReader(open(RESULTS)):
-            if r["time"] >= REPEAT_START and r["phone"].startswith("all#") and r["duration_s"] == str(dur):
-                played.add(r["sound"])
-    return [x for x in sequence()[:REPEAT_N] if x not in played]
+            if (r["time"] >= EXP_START and r["phone"].startswith("all#")
+                    and r["result"] == "session_end"):
+                count[(r["sound"], int(r["duration_s"]))] += 1
+    clips = sequence()
+    for rnd in range(ROUNDS):
+        for dur in ROUND_LENGTHS:
+            todo = [x for x in clips if count[(x, dur)] <= rnd]
+            if todo:
+                random.Random(f"round-{rnd}-{dur}").shuffle(todo)
+                return todo[0], dur, rnd + 1, len(clips) - len(todo)
+    return None
 
 def cell_sounds(dur):
     seq = sequence()
@@ -588,6 +599,7 @@ def tiscode():
     dur = max(1, min(INFOCORE_MAX, dur))
     phone = request.args.get("phone", "unknown")
     order = request.args.get("order", "fixed")
+    note = ""
     if n:
         chosen = n
     elif order == "fixed" and lab():                # balanced: next sound of this cell
@@ -603,27 +615,20 @@ def tiscode():
             return card("Length complete", f"<h1>✅ {dur} s is complete</h1><p>All {len(cell_sounds(dur))} "
                         f"clips were tested on all phones at {dur} s.</p>"
                         + (nxt or "<p class='center'><a href='/choose'>Back</a></p>"))
-    elif order == "repeat" and lab() and phone == "all":
-        todo = repeat_todo(dur)
-        if not todo:
-            nxt = ""
-            if dur > 3:   # repeat round covers 5, 4 and 3 s
-                url = f"/tiscode?phone=all&order=repeat&dur={dur - 1}"
-                nxt = (f"<p>Starting <b>{dur - 1} s</b> in <span id='c'>15</span> s…</p>"
-                       f"<p class='center'><a href='{url}'>Start now</a> · <a href='/choose'>Stop</a></p>"
-                       f"<script>let c=15;setInterval(()=>{{if(--c<=0)location.href='{url}';"
-                       f"document.getElementById('c').textContent=c}},1000)</script>")
-            return card("Repeat complete", f"<h1>✅ Repeat round: {dur} s is complete</h1>"
-                        f"<p>{REPEAT_N} clips were played again at {dur} s.</p>"
-                        + (nxt or "<p class='center'><a href='/choose'>Back</a></p>"))
-        chosen = todo[0]
+    elif order == "rounds" and lab() and phone == "all":
+        nxt = next_round_trial()
+        if not nxt:
+            return card("Rounds complete", f"<h1>✅ All {ROUNDS} rounds are complete</h1>"
+                        "<p class='center'><a href='/choose'>Back</a></p>")
+        chosen, dur, rnd, done = nxt
+        note = f"Round {rnd}/{ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
         chosen = random.choice([x for x in all_sounds() if x not in DUPLICATES])
     if phone == "all":                   # simultaneous test: each play = new session id
         phone = f"all#{next_session_id()}"
-    waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone, order=order,
+    waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone, order=order, note=note,
                    start=time.time(), acks={}, attempt=1, relay_seen=set(), started=False)  # reset by /started
     return playing_page()
 
@@ -646,6 +651,8 @@ def playing_page():
                 .replace("ATTEMPT", str(attempt))
                 .replace("SOUND_NAME", chosen)
                 .replace("DUR", str(dur))
+                .replace("📡 Waiting for your phone...", "📡 Waiting for your phone..."
+                         + (f"<br><small>{waiting['note']}</small>" if waiting.get("note") else ""))
                 .replace("MODE", "all" if phone.startswith("all#") else "single")
                 .replace("PHONE_NAMES", json.dumps(ALL_MODE_PHONES))
                 .replace("❌ Phone didn't react (log as failed)",
