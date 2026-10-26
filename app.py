@@ -280,18 +280,23 @@ SHORT_SUBSET = int(os.environ.get("SHORT_SUBSET", "20"))
 # early still leaves every length with the same number of complete rounds.
 ROUNDS = int(os.environ.get("ROUNDS", "10"))
 ROUND_LENGTHS = [int(x) for x in os.environ.get("ROUND_LENGTHS", "5,4,3,2").split(",")]
+# Noisy-room test: same clips and lengths with background noise, logged as method "TISCODE noisy"
+NOISY = "TISCODE noisy"
+NOISY_ROUNDS = int(os.environ.get("NOISY_ROUNDS", "1"))
+NOISY_LENGTHS = [int(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2").split(",")]
 
-def next_round_trial():
+def next_round_trial(method="TISCODE", rounds=None, lengths=None):
     """(clip, length, round number) of the next trial, or None when all rounds are done."""
+    rounds, lengths = rounds or ROUNDS, lengths or ROUND_LENGTHS
     count = defaultdict(int)
     if os.path.exists(RESULTS):
         for r in csv.DictReader(open(RESULTS)):
             if (r["time"] >= EXP_START and r["phone"].startswith("all#")
-                    and r["result"] == "session_end"):
+                    and r["method"] == method and r["result"] == "session_end"):
                 count[(r["sound"], int(r["duration_s"]))] += 1
     clips = sequence()
-    for rnd in range(ROUNDS):
-        for dur in ROUND_LENGTHS:
+    for rnd in range(rounds):
+        for dur in lengths:
             todo = [x for x in clips if count[(x, dur)] <= rnd]
             if todo:
                 random.Random(f"round-{rnd}-{dur}").shuffle(todo)
@@ -622,6 +627,13 @@ def tiscode():
                         "<p class='center'><a href='/choose'>Back</a></p>")
         chosen, dur, rnd, done = nxt
         note = f"Round {rnd}/{ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
+    elif order == "noisy" and lab() and phone == "all":
+        nxt = next_round_trial(NOISY, NOISY_ROUNDS, NOISY_LENGTHS)
+        if not nxt:
+            return card("Noisy test complete", "<h1>✅ Noisy-room test is complete</h1>"
+                        "<p class='center'><a href='/choose'>Back</a></p>")
+        chosen, dur, rnd, done = nxt
+        note = f"🔊 NOISY · round {rnd}/{NOISY_ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
@@ -629,6 +641,7 @@ def tiscode():
     if phone == "all":                   # simultaneous test: each play = new session id
         phone = f"all#{next_session_id()}"
     waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone, order=order, note=note,
+                   method=NOISY if order == "noisy" else "TISCODE",
                    start=time.time(), acks={}, attempt=1, relay_seen=set(), started=False)  # reset by /started
     return playing_page()
 
@@ -683,7 +696,7 @@ def cut(name, dur):
 @app.route("/fail")
 def fail():
     if waiting.get("token") and waiting["phone"].startswith("all#"):
-        log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "session_end",
+        log_result(waiting.get("method", "TISCODE"), waiting["token"], waiting["dur"], waiting["phone"], "session_end",
                    round(time.time() - waiting["start"], 1), f"{len(waiting['acks'])} phone(s)")
         waiting["token"] = None
         if request.args.get("next"):     # auto mode: straight to the next sound of this length
@@ -714,7 +727,7 @@ def register_ack(dev, t, code=None):
             return "<h1>⏭ Too late for the previous sound, not counted.</h1>"
         if dev not in waiting["acks"]:     # each phone counted once
             waiting["acks"][dev] = round(t - waiting["start"], 1)
-            log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"],
+            log_result(waiting.get("method", "TISCODE"), waiting["token"], waiting["dur"], waiting["phone"],
                        "success", waiting["acks"][dev], dev)
         return "<h1>✅ Confirmed! Go back to your computer.</h1>"
     if not waiting["confirmed"]:          # never count the same confirmation twice
