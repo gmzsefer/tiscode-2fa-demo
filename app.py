@@ -240,6 +240,11 @@ waiting = {"confirmed": False, "token": None}
 # 0-1 s silence | 1-3 s opening marker (OM) | 3-4 s silence | 4-9 s infocore (5 s)
 INFOCORE_START = 4.0      # saniye
 INFOCORE_MAX = 5          # hoca: maksimum 5 sn
+
+def parse_dur(x):
+    """Infocore length from a URL or results.csv: 1-5 s in half seconds (4, 2.5, ...)."""
+    d = max(1.0, min(float(INFOCORE_MAX), round(float(x) * 2) / 2))
+    return int(d) if d.is_integer() else d
 FADE = 0.03               # 30 ms fade-out so the cut does not click
 
 # --- Balanced design: a fixed list chosen at random once ---
@@ -279,11 +284,11 @@ SHORT_SUBSET = int(os.environ.get("SHORT_SUBSET", "20"))
 # (3 phones together). Rounds are filled one at a time across the lengths, so stopping
 # early still leaves every length with the same number of complete rounds.
 ROUNDS = int(os.environ.get("ROUNDS", "10"))
-ROUND_LENGTHS = [int(x) for x in os.environ.get("ROUND_LENGTHS", "5,4,3,2").split(",")]
+ROUND_LENGTHS = [parse_dur(x) for x in os.environ.get("ROUND_LENGTHS", "5,4,3,2").split(",")]
 # Noisy-room test: same clips and lengths with background noise, logged as method "TISCODE noisy"
 NOISY = "TISCODE noisy"
 NOISY_ROUNDS = int(os.environ.get("NOISY_ROUNDS", "1"))
-NOISY_LENGTHS = [int(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2").split(",")]
+NOISY_LENGTHS = [parse_dur(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2").split(",")]
 
 def next_round_trial(method="TISCODE", rounds=None, lengths=None):
     """(clip, length, round number) of the next trial, or None when all rounds are done."""
@@ -293,7 +298,7 @@ def next_round_trial(method="TISCODE", rounds=None, lengths=None):
         for r in csv.DictReader(open(RESULTS)):
             if (r["time"] >= EXP_START and r["phone"].startswith("all#")
                     and r["method"] == method and r["result"] == "session_end"):
-                count[(r["sound"], int(r["duration_s"]))] += 1
+                count[(r["sound"], parse_dur(r["duration_s"]))] += 1
     clips = sequence()
     for rnd in range(rounds):
         for dur in lengths:
@@ -600,8 +605,7 @@ def choose():
 @app.route("/tiscode")
 def tiscode():
     n = request.args.get("n")            # testing: /tiscode?n=5 plays infotis 5
-    dur = int(request.args.get("dur", INFOCORE_MAX))   # infocore length in seconds
-    dur = max(1, min(INFOCORE_MAX, dur))
+    dur = parse_dur(request.args.get("dur", INFOCORE_MAX))   # infocore length in seconds
     phone = request.args.get("phone", "unknown")
     order = request.args.get("order", "fixed")
     note = ""
@@ -673,8 +677,9 @@ def playing_page():
                          else "❌ Not recognised — choose another method"))
 
 # Shorten a sound: keep the OM, cut the infocore after `dur` seconds
-@app.route("/cut/<name>/<int:dur>")
+@app.route("/cut/<name>/<dur>")
 def cut(name, dur):
+    dur = parse_dur(dur)
     path = os.path.join("static", os.path.basename(name) + ".wav")
     with wave.open(path) as w:
         params = w.getparams()
