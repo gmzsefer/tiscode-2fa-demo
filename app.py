@@ -289,11 +289,13 @@ ROUND_LENGTHS = [parse_dur(x) for x in os.environ.get("ROUND_LENGTHS", "5,4,3,2"
 NOISY = "TISCODE noisy"
 NOISY_ROUNDS = int(os.environ.get("NOISY_ROUNDS", "1"))
 NOISY_LENGTHS = [parse_dur(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2").split(",")]
-# Zero-touch test: the TISCODE server confirms by itself, logged as method "TISCODE zero-touch".
-# Its calls carry no phone id, so every call is kept as zt1, zt2... (how many phones and when, not which).
+# Zero-touch test: the TISCODE server confirms by itself. Its calls carry no phone id, so one phone
+# listens at a time (/tiscode?phone=all&order=zerotouch&zt=phoneA), logged as method
+# "TISCODE zero-touch phoneA". Every call is kept as zt1, zt2...: a zt2 means another phone was listening.
 ZERO_TOUCH = "TISCODE zero-touch"
-ZT_ROUNDS = int(os.environ.get("ZT_ROUNDS", "1"))
-ZT_LENGTHS = [parse_dur(x) for x in os.environ.get("ZT_LENGTHS", "5").split(",")]
+ZT_PHONES = {"phoneA": "Huawei", "phoneB": "Motorola", "gamze": "iPhone"}
+ZT_ROUNDS = int(os.environ.get("ZT_ROUNDS", "2"))
+ZT_LENGTHS = [parse_dur(x) for x in os.environ.get("ZT_LENGTHS", "5,4.5,4,3.5,3,2.5,2").split(",")]
 
 def next_round_trial(method="TISCODE", rounds=None, lengths=None):
     """(clip, length, round number) of the next trial, or None when all rounds are done."""
@@ -644,12 +646,18 @@ def tiscode():
         chosen, dur, rnd, done = nxt
         note = f"🔊 NOISY · round {rnd}/{NOISY_ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
     elif order == "zerotouch" and lab() and phone == "all":
-        nxt = next_round_trial(ZERO_TOUCH, ZT_ROUNDS, ZT_LENGTHS)
+        zt = request.args.get("zt", "")
+        if zt not in ZT_PHONES:
+            links = "".join(f"<p class='center'><a href='/tiscode?phone=all&order=zerotouch&zt={k}'>{v}</a></p>"
+                            for k, v in ZT_PHONES.items())
+            return card("Zero-touch test", f"<h1>Which phone is listening?</h1>{links}")
+        nxt = next_round_trial(f"{ZERO_TOUCH} {zt}", ZT_ROUNDS, ZT_LENGTHS)
         if not nxt:
-            return card("Zero-touch test complete", "<h1>✅ Zero-touch test is complete</h1>"
-                        "<p class='center'><a href='/choose'>Back</a></p>")
+            return card("Zero-touch test complete", f"<h1>✅ {ZT_PHONES[zt]} is complete</h1>"
+                        "<p class='center'><a href='/tiscode?phone=all&order=zerotouch'>Next phone</a></p>")
         chosen, dur, rnd, done = nxt
-        note = f"⚡ ZERO-TOUCH · round {rnd}/{ZT_ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
+        note = (f"⚡ ZERO-TOUCH · only {ZT_PHONES[zt]} on · round {rnd}/{ZT_ROUNDS} · {dur} s · "
+                f"{done}/{len(sequence())} clips done")
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
@@ -657,7 +665,8 @@ def tiscode():
     if phone == "all":                   # simultaneous test: each play = new session id
         phone = f"all#{next_session_id()}"
     waiting.update(confirmed=False, token=chosen, dur=dur, phone=phone, order=order, note=note,
-                   method={"noisy": NOISY, "zerotouch": ZERO_TOUCH}.get(order, "TISCODE"),
+                   method={"noisy": NOISY, "zerotouch": f"{ZERO_TOUCH} {request.args.get('zt')}"}.get(order, "TISCODE"),
+                   zt=request.args.get("zt", ""),
                    start=time.time(), acks={}, attempt=1, relay_seen=set(), started=False)  # reset by /started
     return playing_page()
 
@@ -718,7 +727,8 @@ def fail():
         waiting["token"] = None
         if request.args.get("next"):     # auto mode: straight to the next sound of this length
             from flask import redirect
-            return redirect(f"/tiscode?phone=all&order={waiting.get('order', 'fixed')}&dur={waiting['dur']}")
+            return redirect(f"/tiscode?phone=all&order={waiting.get('order', 'fixed')}&dur={waiting['dur']}"
+                            f"&zt={waiting.get('zt', '')}")
     elif waiting.get("token") and not waiting["confirmed"]:
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "fail",
                    round(time.time() - waiting["start"], 1), "", waiting.get("attempt", 1))
@@ -743,7 +753,7 @@ def register_ack(dev, t, code=None):
         if t - waiting["start"] < 4 + waiting["dur"]:
             return "<h1>⏭ Too late for the previous sound, not counted.</h1>"
         if "GuzzleHttp" in dev:            # call from the TISCODE server, not from a phone
-            if waiting.get("method") != ZERO_TOUCH:   # tap tests count only taps from the phones
+            if not waiting.get("method", "").startswith(ZERO_TOUCH):   # tap tests count only taps from the phones
                 return "<h1>✅ Received.</h1>"
             dev = f"zt{len(waiting['acks']) + 1} | {dev}"
         if dev not in waiting["acks"]:     # each phone counted once
