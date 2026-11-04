@@ -747,16 +747,31 @@ def register_ack(dev, t, code=None):
 # Known limitation: the link carries no per-login secret, so anyone who calls it while
 # a login is pending confirms that login. A real system needs a one-time token.
 relay_log = []
+# Full view of the last confirmations, to see what the TISCODE server sends (zero-touch).
+ack_debug = []
+SECRET_HEADERS = {"authorization", "cookie", "x-api-key", "proxy-authorization"}
 
-@app.route("/ack")
+@app.route("/ack", methods=["GET", "POST"])
 def ack():
     code = request.args.get("code") or request.args.get("token")   # infotis link: /ack?code=18
     t, dev = time.time(), device_id()
     relay_log.append({"t": t, "dev": dev, "code": code})
     del relay_log[:-50]
+    ack_debug.append({"t": t, "method": request.method, "path": request.full_path, "args": request.args.to_dict(),
+                      "form": request.form.to_dict(), "json": request.get_json(silent=True),
+                      "headers": {k: v for k, v in request.headers.items() if k.lower() not in SECRET_HEADERS}})
+    del ack_debug[:-50]
     if waiting.get("token"):
         return register_ack(dev, t, code)
     return "<h1>✅ Confirmation sent. Go back to your computer.</h1>"
+
+# /admin/ack-debug?key=RESULTS_KEY shows the last confirmations in full
+@app.route("/admin/ack-debug")
+def admin_ack_debug():
+    key = os.environ.get("RESULTS_KEY")
+    if not key or request.args.get("key") != key:
+        return "<h1>Not allowed</h1>", 403
+    return jsonify(acks=ack_debug)
 
 # Polled by the local experiment server: confirmations after time t
 @app.route("/acks-since")
