@@ -63,11 +63,12 @@
     if ("MODE" === "all") {
       const b = document.getElementById("failbtn");
       b.textContent = "⏹ Finish — next sound (phones that didn't react = failed)";
+      b.href = "/fail?next=1&NEXTQS";
       document.getElementById("retrybtn").style.display = "none";
       // Auto mode: go on by itself when every phone confirmed, or 35 s after the sound started
       // (25 s for 1-2 s clips: late taps are rejected by the server, see register_ack)
       let auto = true, left = null, done = false;
-      const next = () => { if (auto && !done) { done = true; location.href = "/fail?next=1"; } };
+      const next = () => { if (auto && !done) { done = true; location.href = "/fail?next=1&NEXTQS"; } };
       const info = document.createElement("p");
       const stop = document.createElement("a");
       stop.href = "#"; stop.className = "retry"; stop.textContent = "⏸ Stop auto mode";

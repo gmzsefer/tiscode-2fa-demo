@@ -645,7 +645,10 @@ def tiscode():
                         "<p class='center'><a href='/choose'>Back</a></p>")
         chosen, dur, rnd, done = nxt
         note = f"🔊 NOISY · round {rnd}/{NOISY_ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
-    elif order == "zerotouch" and lab() and phone == "all":
+    elif order == "zerotouch" and not lab():
+        return card("Zero-touch test", "<h1>Please log in with the lab account</h1>"
+                    "<p class='center'><a href='/'>Log in</a></p>")
+    elif order == "zerotouch" and phone == "all":
         zt = request.args.get("zt", "")
         if zt not in ZT_PHONES:
             links = "".join(f"<p class='center'><a href='/tiscode?phone=all&order=zerotouch&zt={k}'>{v}</a></p>"
@@ -685,7 +688,8 @@ def playing_page():
     chosen, dur, phone = waiting["token"], waiting["dur"], waiting["phone"]
     html = open("playing.html", encoding="utf-8").read()
     attempt = waiting.get("attempt", 1)
-    return (html.replace("SOUND_URL", f"/cut/{chosen}/{dur}?a={attempt}")
+    return (html.replace("NEXTQS", f"s={quote(phone)}&order={waiting.get('order', 'fixed')}&dur={dur}&zt={waiting.get('zt', '')}")
+                .replace("SOUND_URL", f"/cut/{chosen}/{dur}?a={attempt}")
                 .replace("ATTEMPT", str(attempt))
                 .replace("SOUND_NAME", chosen)
                 .replace("DUR", str(dur))
@@ -721,19 +725,26 @@ def cut(name, dur):
 # Phone did not react -> log a failed trial
 @app.route("/fail")
 def fail():
+    from flask import redirect
+    resume = (f"/tiscode?phone=all&order={request.args.get('order', 'fixed')}&dur={request.args.get('dur', '')}"
+              f"&zt={request.args.get('zt', '')}")
+    s = request.args.get("s")
+    if s and waiting.get("token") and s != waiting.get("phone"):   # old tab: must not end the running test
+        return card("Another test is running", "<h1>⚠️ This tab is out of date</h1><p>Another tab is running "
+                    "the test. Close this one.</p>")
+    if s and not waiting.get("token"):      # server restarted: go on with the same test
+        return redirect(resume)
     if waiting.get("token") and waiting["phone"].startswith("all#"):
         log_result(waiting.get("method", "TISCODE"), waiting["token"], waiting["dur"], waiting["phone"], "session_end",
                    round(time.time() - waiting["start"], 1), f"{len(waiting['acks'])} phone(s)")
         waiting["token"] = None
         if request.args.get("next"):     # auto mode: straight to the next sound of this length
-            from flask import redirect
             return redirect(f"/tiscode?phone=all&order={waiting.get('order', 'fixed')}&dur={waiting['dur']}"
                             f"&zt={waiting.get('zt', '')}")
     elif waiting.get("token") and not waiting["confirmed"]:
         log_result("TISCODE", waiting["token"], waiting["dur"], waiting["phone"], "fail",
                    round(time.time() - waiting["start"], 1), "", waiting.get("attempt", 1))
         waiting["token"] = None
-    from flask import redirect
     return redirect("/choose")
 
 # Register a confirmation at time t (server clock)
