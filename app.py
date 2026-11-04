@@ -485,10 +485,11 @@ def login():
             return home(f'Please confirm your e-mail first. '
                         f'<a href="/resend?e={quote(email)}">Send the link again</a>')
         lab_user = False
+    back = session.get("back") if lab_user else None   # test link opened before logging in
     session.clear()
     session.update(logged_in=True, lab=lab_user, user=email)
     bind_user(email)
-    return redirect("/choose")
+    return redirect(back or "/choose")
 
 def send_verification(email, token):
     link = f"{request.host_url}verify?t={token}"
@@ -596,6 +597,10 @@ def choose_html():
 <a href="/download/results.csv">📥 results.csv</a> ·
 <a href="/download/collisions.csv">📥 collisions.csv</a> ·
 <a href="/collision-setup">🔀 Collision test</a></p></body>''', 1)
+        h = h.replace('<div class="section">🔢 Other second factors</div>', '<div class="section">⚡ Zero-touch test</div>'
+                      + "".join(f'<a class="btn tiscode" href="/tiscode?phone=all&order=zerotouch&zt={k}">⚡ {v}</a>'
+                                for k, v in ZT_PHONES.items())
+                      + '<div class="section">🔢 Other second factors</div>', 1)
     if not lab():             # demo: hide the phone selector (experiment tool)
         h = h.replace('<label class="opt">Phone', '<label class="opt" style="display:none">Phone')
         h = h.replace('<label class="opt">Sound order', '<label class="opt" style="display:none">Sound order')
@@ -646,6 +651,7 @@ def tiscode():
         chosen, dur, rnd, done = nxt
         note = f"🔊 NOISY · round {rnd}/{NOISY_ROUNDS} · {dur} s · {done}/{len(sequence())} clips done"
     elif order == "zerotouch" and not lab():
+        session["back"] = request.full_path
         return card("Zero-touch test", "<h1>Please log in with the lab account</h1>"
                     "<p class='center'><a href='/'>Log in</a></p>")
     elif order == "zerotouch" and phone == "all":
