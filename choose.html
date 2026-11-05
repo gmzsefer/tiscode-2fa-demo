@@ -31,8 +31,6 @@
     .tiscode:hover { opacity: 0.9; }
     .totp { background: #10b981; color: white; cursor: pointer; }
     .totp:hover { opacity: 0.9; }
-    .push { background: #0ea5e9; color: white; cursor: pointer; }
-    .push:hover { opacity: 0.9; }
     button.btn { border: none; }
     .section {
       text-align: left; font-size: 12px; font-weight: bold; color: #764ba2;
@@ -89,11 +87,10 @@
     <div class="section">🔢 Other second factors</div>
     <a class="btn email" href="/email-otp">📩 OTP code (sent to phone)</a>
     <a class="btn totp" href="/totp">🔢 Authenticator app (OTP)</a>
-    <a class="btn push" href="/push">📲 Push approval (tap to approve)</a>
   </div>
   <script>
     // The other second-factor buttons also log the selected phone
-    document.querySelectorAll("a.email, a.totp, a.push").forEach(a => a.addEventListener("click", e => {
+    document.querySelectorAll("a.email, a.totp").forEach(a => a.addEventListener("click", e => {
       e.preventDefault();
       location.href = a.getAttribute("href") + "?phone=" + document.querySelector("select[name=phone]").value;
     }));

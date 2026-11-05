@@ -28,8 +28,6 @@ After logging in, choose one second factor:
 
 - **OTP code** - open `https://tiscode-2fa-demo.onrender.com/inbox` on your
   phone, read the 6-digit code there and type it on the computer.
-- **Push approval** - keep the same `/inbox` page open on the phone and tap
-  **Approve**.
 - **Authenticator app** - open `/totp-setup`, scan the QR code with Google or
   Microsoft Authenticator, then type the 6-digit code from the app.
 - **TISCODE** - the computer plays one of the sounds 2, 4, 6, 7-23, 14-30 or 20. The
@@ -52,11 +50,10 @@ in the same room as the computer.
 
 ![TISCODE waiting for the phone](docs/playing.png)
 
-For comparison the demo also has three common second factors:
+For comparison the demo also has two common second factors:
 
 - a 6-digit code sent to the phone (simulates SMS / e-mail, shown on the `/inbox` page)
 - an Authenticator app code (TOTP, RFC 6238, works with Google Authenticator; set up at `/totp-setup`)
-- a push approval ("Is this you?" with Approve / Deny on the `/inbox` page)
 
 ## Results so far
 
@@ -80,8 +77,7 @@ python3 app.py          # http://localhost:5002
 
 The demo account is `demo@tiscode.test` / `tiscode-demo` unless you create a
 `.demo_login` file (first line e-mail, second line password). Phones must be on
-the same network and open `http://<computer-IP>:5002/inbox` for the code and
-push methods.
+the same network and open `http://<computer-IP>:5002/inbox` for the code.
 
 Running locally starts in experiment mode: a phone selector, a fixed balanced
 list of sounds, retry / "not recognised" buttons, and every trial is written to
