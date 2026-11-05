@@ -547,7 +547,7 @@ def welcome():
     return card("Welcome", f'''<h1>Welcome! 🎉</h1>
 <p>Your account <b>{user}</b> is confirmed. You can now test four second factors.</p>
 <ol style="text-align:left;color:#374151;font-size:14px;line-height:1.6;padding-left:20px">
-<li><b>Phone inbox</b> (for OTP code and push): open this link on your phone and keep it open<br>
+<li><b>Phone inbox</b> (for the OTP code): open this link on your phone and keep it open<br>
 <a href="{inbox_url()}" style="word-break:break-all">{inbox_url()}</a></li>
 <li><b>Authenticator app</b>: <a href="/totp-setup">scan your QR code</a> with Google or Microsoft Authenticator.</li>
 <li><b>TISCODE</b>: needs a phone with the TISCODE app that knows the demo clips.</li>
