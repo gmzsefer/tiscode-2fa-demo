@@ -77,8 +77,11 @@
       stop.onclick = e => { e.preventDefault(); auto = false; info.textContent = "Auto mode off"; stop.remove(); };
       b.after(info, stop);
       document.getElementById("clip").addEventListener("playing", () => { left = DUR <= 2 ? 25 : 35; }, {once: true});
+      // Zero-touch with one phone: go on 4 s after its confirmation
+      let quick = false;
       setInterval(() => {
         if (!auto) return;
+        if ("ZTSINGLE" === "1" && names.length && !quick) { quick = true; setTimeout(next, 4000); }
         if (PHONE_NAMES.every(n => names.includes(n))) { setTimeout(next, 1500); return; }
         if (left === null) return;
         info.textContent = `Next sound in ${left} s`;

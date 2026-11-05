@@ -696,6 +696,7 @@ def playing_page():
     html = open("playing.html", encoding="utf-8").read()
     attempt = waiting.get("attempt", 1)
     return (html.replace("NEXTQS", f"s={quote(phone)}&order={waiting.get('order', 'fixed')}&dur={dur}&zt={waiting.get('zt', '')}")
+                .replace("ZTSINGLE", "1" if waiting.get("order") == "zerotouch" and waiting.get("zt") != "all" else "0")
                 .replace("SOUND_URL", f"/cut/{chosen}/{dur}?a={attempt}")
                 .replace("ATTEMPT", str(attempt))
                 .replace("SOUND_NAME", chosen)
