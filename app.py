@@ -262,7 +262,7 @@ DUPLICATES = {"20_2"}    # 20_2.wav is byte-identical to 20.wav (same md5) -> ex
 
 # Demo mode (server) plays only the sounds that were most reliable in the trials,
 # so only these infotis links need to point to the public site.
-DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,7,11,32").split(",")
+DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,11,4,31,14-30").split(",")
 
 # ACK RELAY: infotis links point to the public site (/ack); the local experiment
 # server polls confirmations from there. Phones can confirm from any network
@@ -466,7 +466,10 @@ def logout():
 @app.route("/")
 def home(error=""):
     h = open("login.html", encoding="utf-8").read()
-    return h.replace("<!--ERROR-->", f'<p class="error">{error}</p>' if error else "")
+    links = " · ".join(f'<a href="{u}">{n}</a>' for n, u in (("Android", os.environ.get("APP_ANDROID_URL")),
+                                                             ("iPhone", os.environ.get("APP_IOS_URL"))) if u)
+    return (h.replace("<!--ERROR-->", f'<p class="error">{error}</p>' if error else "")
+             .replace("<!--APP_LINKS-->", f" ({links})" if links else ""))
 
 # Login form posts here: check the password
 @app.route("/login", methods=["POST"])

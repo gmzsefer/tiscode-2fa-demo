@@ -7,6 +7,14 @@ Built during my Erasmus+ internship at the University of Padova, October 2026.
 
 ## Try it yourself
 
+1. Install the TISCODE app on your phone (download links: to be added).
+2. Open the app and grant all the permissions it asks for.
+3. Tap the activation button in the app.
+4. On a computer, open the demo below, log in and choose **TISCODE**. Turn the sound up.
+5. Keep the phone near the computer while the sound plays.
+6. The login completes by itself. If the phone shows a notification and the page
+   keeps waiting, tap the notification.
+
 Live demo: **https://tiscode-2fa-demo.onrender.com**
 Login: `demo@tiscode.test` / `tiscode-demo`
 
@@ -21,9 +29,9 @@ After logging in, choose one second factor:
   **Approve**.
 - **Authenticator app** - open `/totp-setup`, scan the QR code with Google or
   Microsoft Authenticator, then type the 6-digit code from the app.
-- **TISCODE** - the computer plays one of the sounds 7, 11, 18, 32 or 36. A phone
-  with the TISCODE app that knows these infotis shows a notification; tapping it
-  completes the login. The links of these infotis point to `/ack` on this site.
+- **TISCODE** - the computer plays one of the sounds 4, 11, 14-30, 18, 31 or 36. The
+  TISCODE app on the phone recognises it and the login completes (see the steps
+  above). The links of these infotis point to `/ack` on this site.
 
 To use your own infotis instead: put their `.wav` files in `static/`, set each
 infotis link on the TISCODE platform to `https://<your-site>/ack`, and set the
@@ -102,8 +110,8 @@ login state is kept in memory) and these environment variables:
   waiting would confirm that login. A real deployment needs a one-time token in
   the link for each login.
 - One login at a time (state in memory), plain-text demo password check.
-- The TISCODE app still needs one tap on the notification; confirming
-  automatically (zero-touch) is future work.
+- Zero-touch confirmations reach `/ack` from the TISCODE server without a phone id
+  or clip code, so phones listening together cannot be told apart.
 - iPhone trials and a 2 s / 4 s infocore are still to be done.
 
 ## Use of AI tools

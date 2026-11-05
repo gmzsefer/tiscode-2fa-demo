@@ -7,6 +7,10 @@
     body { margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
     .kart { text-align: left; }
     h1 { text-align: center; }
+    .guide { margin-top: 18px; font-size: 14px; }
+    .guide summary { font-weight: 600; cursor: pointer; }
+    .guide ol { padding-left: 20px; margin: 8px 0 0; }
+    .guide li { margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -23,6 +27,17 @@
       <button type="submit">Log in</button>
     </form>
     <p class="center">No account yet? <a href="/register">Create one</a></p>
+    <details class="guide" open>
+      <summary>How to try the demo</summary>
+      <ol>
+        <li>Install the TISCODE app on your phone<!--APP_LINKS-->.</li>
+        <li>Open the app and grant all the permissions it asks for.</li>
+        <li>Tap the activation button in the app.</li>
+        <li>On this computer, log in and choose <b>TISCODE</b>. Turn the sound up.</li>
+        <li>Keep the phone near the computer while the sound plays.</li>
+        <li>The login completes by itself. If the phone shows a notification and the page keeps waiting, tap the notification.</li>
+      </ol>
+    </details>
   </div>
 </body>
 </html>
