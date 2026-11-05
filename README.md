@@ -10,7 +10,8 @@ Built during my Erasmus+ internship at the University of Padova, October 2026.
 1. Install the TISCODE app on your phone (download links: to be added).
 2. Open the app and grant all the permissions it asks for.
 3. Tap the activation button in the app.
-4. On a computer, open the demo below, log in and choose **TISCODE**. Turn the sound up.
+4. On a computer, open the demo below, create an account or use the login below, and
+   choose **TISCODE**. Turn the sound up.
 5. Keep the phone near the computer while the sound plays.
 6. The login completes by itself. If the phone shows a notification and the page
    keeps waiting, tap the notification.
