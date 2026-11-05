@@ -140,7 +140,7 @@ def send_mail(to, subject, text, html=None):
 
 
 # ---------- PER-USER STATE ----------
-# Each logged-in user has their own pending TISCODE login, OTP code, push request and
+# Each logged-in user has their own pending TISCODE login, OTP code and
 # TOTP timer, so several people can test at the same time. Requests are handled one at
 # a time (lock), and the module-level names below are bound to the current user.
 _lock = threading.Lock()
@@ -149,13 +149,12 @@ STATE = {}
 def _fresh():
     return dict(waiting={"confirmed": False, "token": None},
                 otp={"code": None, "start": None, "tries": 0},
-                push={"pending": False, "id": 0, "start": None, "phone": "", "approved": False},
                 totp={"start": None, "last_counter": None})
 
 def bind_user(user):
-    global waiting, otp, push, totp
+    global waiting, otp, totp
     st = STATE.setdefault(user, _fresh())
-    waiting, otp, push, totp = st["waiting"], st["otp"], st["push"], st["totp"]
+    waiting, otp, totp = st["waiting"], st["otp"], st["totp"]
     g.user = user
 
 def user_key(user):
@@ -1245,9 +1244,9 @@ def email_otp():
     return otp_page(note)
 
 
-# ---------- PHONE INBOX (OTP and push delivery without e-mail) ----------
+# ---------- PHONE INBOX (OTP delivery without e-mail) ----------
 # The phone keeps http://<laptop-IP>:5002/inbox open in its browser.
-# New codes and push requests appear there and the phone vibrates.
+# New codes appear there and the phone vibrates.
 def inbox_url():
     # Locally: the laptop's network IP; on the server: the site's own address
     host = request.host.split(":")[0]
@@ -1279,21 +1278,9 @@ def inbox():
 <script>
 let last = null;
 const K = location.search;   // ?k=... ties this phone page to one user
-async function answer(a) { await fetch("/push-" + a + K, {method: "POST"}); }
 setInterval(async () => {
   const d = await (await fetch("/inbox-status" + K)).json();
   const box = document.getElementById("box");
-  if (d.push) {
-    if (last !== "push-" + d.push) {
-      last = "push-" + d.push;
-      box.innerHTML = '<p class="muted">TISCODE Demo · Login request</p><h2>Is this you trying to sign in?</h2>' +
-        '<button onclick="answer(\'approve\')" style="font-size:20px;padding:14px 28px;margin:8px;background:#16a34a;color:white;border:none;border-radius:12px">Approve</button>' +
-        '<button onclick="answer(\'deny\')" style="font-size:20px;padding:14px 28px;margin:8px;background:#e5e7eb;border:none;border-radius:12px">Deny</button>';
-      box.classList.remove("new"); void box.offsetWidth; box.classList.add("new");
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    }
-    return;
-  }
   if (!d.code) { box.innerHTML = '<p class="muted">No new messages</p>'; last = null; return; }
   if (d.code !== last) {
     last = d.code;
@@ -1308,49 +1295,7 @@ setInterval(async () => {
 @app.route("/inbox-status")
 def inbox_status():
     alive = otp["code"] and not otp.get("sent") and time.time() - otp["start"] <= OTP_TTL
-    p = push["id"] if push["pending"] and time.time() - push["start"] <= OTP_TTL else None
-    return jsonify(code=otp["code"] if alive else None, push=p)
-
-
-# ---------- PUSH APPROVAL ("Is this you?", as in Google / Microsoft / Duo) ----------
-# Closest competitor to TISCODE: both need one tap. Push does not prove the phone
-# is in the same room (open to MFA-fatigue attacks).
-push = {"pending": False, "id": 0, "start": None, "phone": "", "approved": False}
-
-@app.route("/push")
-def push_start():
-    push.update(pending=True, id=push["id"] + 1, start=time.time(), approved=False,
-                phone=request.args.get("phone", ""))     # timer starts
-    return card("Push approval", f'''<h1>📲 Check your phone</h1>
-<p>A login request was sent to your phone.<br>Tap <b>Approve</b> to sign in.</p>
-<p style="color:#888;font-size:12px">Phone: open <b>{inbox_url()}</b></p>
-<script>setInterval(async () => {{
-  const d = await (await fetch("/push-status")).json();
-  if (d.approved) location.href = "/push-success";
-  if (d.denied) location.href = "/choose";
-}}, 1000);</script>''')
-
-@app.route("/push-approve", methods=["POST"])
-def push_approve():
-    if push["pending"]:
-        push.update(pending=False, approved=True, elapsed=round(time.time() - push["start"], 1))
-        log_result("Push approval", "", "", push["phone"], "success", push["elapsed"])
-    return jsonify(ok=True)
-
-@app.route("/push-deny", methods=["POST"])
-def push_deny():
-    if push["pending"]:
-        push.update(pending=False, denied=True)
-        log_result("Push approval", "", "", push["phone"], "denied", round(time.time() - push["start"], 1))
-    return jsonify(ok=True)
-
-@app.route("/push-status")
-def push_status():
-    return jsonify(approved=push["approved"], denied=push.pop("denied", False))
-
-@app.route("/push-success")
-def push_success():
-    return success_page("Push approval", push.get("elapsed", "?"))
+    return jsonify(code=otp["code"] if alive else None)
 
 
 # Code entry page (re-shown with an error message)
