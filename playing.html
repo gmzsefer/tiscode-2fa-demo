@@ -69,6 +69,8 @@
       // (25 s for 1-2 s clips: late taps are rejected by the server, see register_ack)
       let auto = true, left = null, done = false;
       const next = () => { if (auto && !done) { done = true; location.href = "/fail?next=1&NEXTQS"; } };
+      // Finish and the auto timer must not both end the sound (the second one would look like an old tab)
+      b.addEventListener("click", e => { if (done) e.preventDefault(); done = true; });
       const info = document.createElement("p");
       const stop = document.createElement("a");
       stop.href = "#"; stop.className = "retry"; stop.textContent = "⏸ Stop auto mode";

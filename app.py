@@ -737,8 +737,8 @@ def fail():
               f"&zt={request.args.get('zt', '')}")
     s = request.args.get("s")
     if s and waiting.get("token") and s != waiting.get("phone"):   # old tab: must not end the running test
-        return card("Another test is running", "<h1>⚠️ This tab is out of date</h1><p>Another tab is running "
-                    "the test. Close this one.</p>")
+        return card("Another test is running", "<h1>⚠️ This tab is out of date</h1><p>If no other tab is playing, "
+                    f"continue here. Otherwise close this one.</p><p class='center'><a href='{resume}'>Continue the test</a></p>")
     if s and not waiting.get("token"):      # server restarted: go on with the same test
         return redirect(resume)
     if waiting.get("token") and waiting["phone"].startswith("all#"):
