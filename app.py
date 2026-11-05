@@ -293,7 +293,7 @@ NOISY_LENGTHS = [parse_dur(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2"
 # listens at a time (/tiscode?phone=all&order=zerotouch&zt=phoneA), logged as method
 # "TISCODE zero-touch phoneA". Every call is kept as zt1, zt2...: a zt2 means another phone was listening.
 ZERO_TOUCH = "TISCODE zero-touch"
-ZT_PHONES = {"phoneA": "Huawei", "phoneB": "Motorola", "gamze": "iPhone"}
+ZT_PHONES = {"phoneA": "Huawei", "phoneB": "Motorola", "gamze": "iPhone", "all": "All 3 phones"}
 ZT_ROUNDS = int(os.environ.get("ZT_ROUNDS", "2"))
 ZT_LENGTHS = [parse_dur(x) for x in os.environ.get("ZT_LENGTHS", "5,4.5,4,3.5,3,2.5,2").split(",")]
 
@@ -665,7 +665,8 @@ def tiscode():
             return card("Zero-touch test complete", f"<h1>✅ {ZT_PHONES[zt]} is complete</h1>"
                         "<p class='center'><a href='/tiscode?phone=all&order=zerotouch'>Next phone</a></p>")
         chosen, dur, rnd, done = nxt
-        note = (f"⚡ ZERO-TOUCH · only {ZT_PHONES[zt]} on · round {rnd}/{ZT_ROUNDS} · {dur} s · "
+        note = (f"⚡ ZERO-TOUCH · {'all 3 phones on' if zt == 'all' else f'only {ZT_PHONES[zt]} on'} · "
+                f"round {rnd}/{ZT_ROUNDS} · {dur} s · "
                 f"{done}/{len(sequence())} clips done")
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
