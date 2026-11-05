@@ -7,7 +7,9 @@ Built during my Erasmus+ internship at the University of Padova, October 2026.
 
 ## Try it yourself
 
-1. Install the TISCODE app on your phone (download links: to be added).
+1. Install the TISCODE app on your phone:
+   [Android](https://play.google.com/store/apps/details?id=com.tiscode) ·
+   [iPhone](https://apps.apple.com/us/app/tiscode/id6758673291).
 2. Open the app and grant all the permissions it asks for.
 3. Tap the activation button in the app.
 4. On a computer, open the demo below, create an account or use the login below, and

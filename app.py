@@ -466,8 +466,8 @@ def logout():
 @app.route("/")
 def home(error=""):
     h = open("login.html", encoding="utf-8").read()
-    links = " · ".join(f'<a href="{u}">{n}</a>' for n, u in (("Android", os.environ.get("APP_ANDROID_URL")),
-                                                             ("iPhone", os.environ.get("APP_IOS_URL"))) if u)
+    links = ('<a href="https://play.google.com/store/apps/details?id=com.tiscode">Android</a> · '
+             '<a href="https://apps.apple.com/us/app/tiscode/id6758673291">iPhone</a>')
     return (h.replace("<!--ERROR-->", f'<p class="error">{error}</p>' if error else "")
              .replace("<!--APP_LINKS-->", f" ({links})" if links else ""))
 
