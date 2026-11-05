@@ -262,7 +262,7 @@ DUPLICATES = {"20_2"}    # 20_2.wav is byte-identical to 20.wav (same md5) -> ex
 
 # Demo mode (server) plays only the sounds that were most reliable in the trials,
 # so only these infotis links need to point to the public site.
-DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "18,36,11,4,31,14-30").split(",")
+DEMO_SOUNDS = os.environ.get("DEMO_SOUNDS", "4,6,14-30,2,20,7-23").split(",")
 
 # ACK RELAY: infotis links point to the public site (/ack); the local experiment
 # server polls confirmations from there. Phones can confirm from any network

@@ -29,7 +29,7 @@ After logging in, choose one second factor:
   **Approve**.
 - **Authenticator app** - open `/totp-setup`, scan the QR code with Google or
   Microsoft Authenticator, then type the 6-digit code from the app.
-- **TISCODE** - the computer plays one of the sounds 4, 11, 14-30, 18, 31 or 36. The
+- **TISCODE** - the computer plays one of the sounds 2, 4, 6, 7-23, 14-30 or 20. The
   TISCODE app on the phone recognises it and the login completes (see the steps
   above). The links of these infotis point to `/ack` on this site.
 
