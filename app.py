@@ -293,11 +293,12 @@ NOISY_LENGTHS = [parse_dur(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2"
 # "TISCODE zero-touch phoneA". Every call is kept as zt1, zt2...: a zt2 means another phone was listening.
 ZERO_TOUCH = "TISCODE zero-touch"
 ZT_PHONES = {"phoneA": "Huawei", "phoneB": "Motorola", "gamze": "iPhone", "all": "All 3 phones"}
-# 20 selected clips, 5 rounds at every length (each round starts at 5 s)
-ZT_ROUNDS = int(os.environ.get("ZT_ROUNDS", "5"))
-ZT_LENGTHS = [parse_dur(x) for x in os.environ.get("ZT_LENGTHS", "5,4.5,4,3.5,3,2.5,2").split(",")]
-ZT_CLIPS = os.environ.get("ZT_CLIPS", "15-27,36,18,13,40,50,44,8,6,11,32,35,43,33,2,"
-                          "20-28,7-23,15,8-29,4").split(",")
+# 20 selected clips, 5 rounds at every length (each round starts at 5 s).
+# Fixed in code on purpose: old ZT_ROUNDS / ZT_LENGTHS values on Render cut the test at 3 s.
+ZT_ROUNDS = 5
+ZT_LENGTHS = [5, 4.5, 4, 3.5, 3, 2.5, 2]
+ZT_CLIPS = ["15-27", "36", "18", "13", "40", "50", "44", "8", "6", "11", "32", "35", "43", "33", "2",
+            "20-28", "7-23", "15", "8-29", "4"]
 
 def next_round_trial(method="TISCODE", rounds=None, lengths=None, clips=None):
     """(clip, length, round number) of the next trial, or None when all rounds are done."""
@@ -1039,7 +1040,8 @@ def admin_health():
     key = os.environ.get("RESULTS_KEY")
     if not key or request.args.get("key") != key:
         return "<h1>Not allowed</h1>", 403
-    info = {"database": bool(DATABASE_URL), "exp_start": EXP_START}
+    info = {"database": bool(DATABASE_URL), "exp_start": EXP_START,
+            "zero_touch": {"rounds": ZT_ROUNDS, "lengths": ZT_LENGTHS, "clips": len(ZT_CLIPS)}}
     try:
         info["db_results"] = db_run("SELECT COUNT(*) FROM results", fetch=True)[0][0] if DATABASE_URL else None
         info["db_users"] = db_run("SELECT COUNT(*) FROM users", fetch=True)[0][0]
