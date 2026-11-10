@@ -293,10 +293,13 @@ NOISY_LENGTHS = [parse_dur(x) for x in os.environ.get("NOISY_LENGTHS", "5,4,3,2"
 # "TISCODE zero-touch phoneA". Every call is kept as zt1, zt2...: a zt2 means another phone was listening.
 ZERO_TOUCH = "TISCODE zero-touch"
 ZT_PHONES = {"phoneA": "Huawei", "phoneB": "Motorola", "gamze": "iPhone", "all": "All 3 phones"}
-ZT_ROUNDS = int(os.environ.get("ZT_ROUNDS", "2"))
+# 20 selected clips, 5 rounds at every length (each round starts at 5 s)
+ZT_ROUNDS = int(os.environ.get("ZT_ROUNDS", "5"))
 ZT_LENGTHS = [parse_dur(x) for x in os.environ.get("ZT_LENGTHS", "5,4.5,4,3.5,3,2.5,2").split(",")]
+ZT_CLIPS = os.environ.get("ZT_CLIPS", "15-27,36,18,13,40,50,44,8,6,11,32,35,43,33,2,"
+                          "20-28,7-23,15,8-29,4").split(",")
 
-def next_round_trial(method="TISCODE", rounds=None, lengths=None):
+def next_round_trial(method="TISCODE", rounds=None, lengths=None, clips=None):
     """(clip, length, round number) of the next trial, or None when all rounds are done."""
     rounds, lengths = rounds or ROUNDS, lengths or ROUND_LENGTHS
     count = defaultdict(int)
@@ -305,7 +308,7 @@ def next_round_trial(method="TISCODE", rounds=None, lengths=None):
             if (r["time"] >= EXP_START and r["phone"].startswith("all#")
                     and r["method"] == method and r["result"] == "session_end"):
                 count[(r["sound"], parse_dur(r["duration_s"]))] += 1
-    clips = sequence()
+    clips = clips or sequence()
     for rnd in range(rounds):
         for dur in lengths:
             todo = [x for x in clips if count[(x, dur)] <= rnd]
@@ -662,14 +665,14 @@ def tiscode():
             links = "".join(f"<p class='center'><a href='/tiscode?phone=all&order=zerotouch&zt={k}'>{v}</a></p>"
                             for k, v in ZT_PHONES.items())
             return card("Zero-touch test", f"<h1>Which phone is listening?</h1>{links}")
-        nxt = next_round_trial(f"{ZERO_TOUCH} {zt}", ZT_ROUNDS, ZT_LENGTHS)
+        nxt = next_round_trial(f"{ZERO_TOUCH} {zt}", ZT_ROUNDS, ZT_LENGTHS, ZT_CLIPS)
         if not nxt:
             return card("Zero-touch test complete", f"<h1>✅ {ZT_PHONES[zt]} is complete</h1>"
                         "<p class='center'><a href='/tiscode?phone=all&order=zerotouch'>Next phone</a></p>")
         chosen, dur, rnd, done = nxt
         note = (f"⚡ ZERO-TOUCH · {'all 3 phones on' if zt == 'all' else f'only {ZT_PHONES[zt]} on'} · "
                 f"round {rnd}/{ZT_ROUNDS} · {dur} s · "
-                f"{done}/{len(sequence())} clips done")
+                f"{done}/{len(ZT_CLIPS)} clips done")
     elif not lab():                                  # demo: random reliable sound
         chosen = random.choice([x for x in DEMO_SOUNDS if x in all_sounds()])
     else:                                            # fully random (like real 2FA)
